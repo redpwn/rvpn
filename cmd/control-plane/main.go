@@ -44,6 +44,8 @@ func main() {
 	r.Use(ginzap.Ginzap(log, time.RFC3339, true))
 	r.Use(ginzap.RecoveryWithZap(log, true))
 
+	RegisterHandlers(r, a)
+
 	listenAddress := fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port)
 	log.Info("start", zap.String("address", listenAddress))
 	if err := r.Run(listenAddress); err != nil {

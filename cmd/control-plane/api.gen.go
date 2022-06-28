@@ -8,11 +8,14 @@ import (
 	"compress/gzip"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path"
 	"strings"
 
+	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -72,6 +75,155 @@ type PostTargetTargetConnectionJSONBody = NewConnectionRequest
 
 // PostTargetTargetConnectionJSONRequestBody defines body for PostTargetTargetConnection for application/json ContentType.
 type PostTargetTargetConnectionJSONRequestBody = PostTargetTargetConnectionJSONBody
+
+// ServerInterface represents all server handlers.
+type ServerInterface interface {
+	// User login page
+	// (GET /auth/login)
+	GetAuthLogin(c *gin.Context, params GetAuthLoginParams)
+	// Returns available connection targets
+	// (GET /target/)
+	GetTarget(c *gin.Context)
+	// Creates a new device connection on a target
+	// (POST /target/{target}/connection)
+	PostTargetTargetConnection(c *gin.Context, target Target)
+
+	// (GET /target/{target}/connection/{id})
+	GetTargetTargetConnectionId(c *gin.Context, target Target, id Id)
+}
+
+// ServerInterfaceWrapper converts contexts to parameters.
+type ServerInterfaceWrapper struct {
+	Handler            ServerInterface
+	HandlerMiddlewares []MiddlewareFunc
+}
+
+type MiddlewareFunc func(c *gin.Context)
+
+// GetAuthLogin operation middleware
+func (siw *ServerInterfaceWrapper) GetAuthLogin(c *gin.Context) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAuthLoginParams
+
+	// ------------- Required query parameter "callback" -------------
+	if paramValue := c.Query("callback"); paramValue != "" {
+
+	} else {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": "Query argument callback is required, but not found"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "callback", c.Request.URL.Query(), &params.Callback)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("Invalid format for parameter callback: %s", err)})
+		return
+	}
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+	}
+
+	siw.Handler.GetAuthLogin(c, params)
+}
+
+// GetTarget operation middleware
+func (siw *ServerInterfaceWrapper) GetTarget(c *gin.Context) {
+
+	c.Set(BearerAuthScopes, []string{""})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+	}
+
+	siw.Handler.GetTarget(c)
+}
+
+// PostTargetTargetConnection operation middleware
+func (siw *ServerInterfaceWrapper) PostTargetTargetConnection(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "target" -------------
+	var target Target
+
+	err = runtime.BindStyledParameter("simple", false, "target", c.Param("target"), &target)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("Invalid format for parameter target: %s", err)})
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{""})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+	}
+
+	siw.Handler.PostTargetTargetConnection(c, target)
+}
+
+// GetTargetTargetConnectionId operation middleware
+func (siw *ServerInterfaceWrapper) GetTargetTargetConnectionId(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "target" -------------
+	var target Target
+
+	err = runtime.BindStyledParameter("simple", false, "target", c.Param("target"), &target)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("Invalid format for parameter target: %s", err)})
+		return
+	}
+
+	// ------------- Path parameter "id" -------------
+	var id Id
+
+	err = runtime.BindStyledParameter("simple", false, "id", c.Param("id"), &id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"msg": fmt.Sprintf("Invalid format for parameter id: %s", err)})
+		return
+	}
+
+	c.Set(BearerAuthScopes, []string{""})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+	}
+
+	siw.Handler.GetTargetTargetConnectionId(c, target, id)
+}
+
+// GinServerOptions provides options for the Gin server.
+type GinServerOptions struct {
+	BaseURL     string
+	Middlewares []MiddlewareFunc
+}
+
+// RegisterHandlers creates http.Handler with routing matching OpenAPI spec.
+func RegisterHandlers(router *gin.Engine, si ServerInterface) *gin.Engine {
+	return RegisterHandlersWithOptions(router, si, GinServerOptions{})
+}
+
+// RegisterHandlersWithOptions creates http.Handler with additional options
+func RegisterHandlersWithOptions(router *gin.Engine, si ServerInterface, options GinServerOptions) *gin.Engine {
+	wrapper := ServerInterfaceWrapper{
+		Handler:            si,
+		HandlerMiddlewares: options.Middlewares,
+	}
+
+	router.GET(options.BaseURL+"/auth/login", wrapper.GetAuthLogin)
+
+	router.GET(options.BaseURL+"/target/", wrapper.GetTarget)
+
+	router.POST(options.BaseURL+"/target/:target/connection", wrapper.PostTargetTargetConnection)
+
+	router.GET(options.BaseURL+"/target/:target/connection/:id", wrapper.GetTargetTargetConnectionId)
+
+	return router
+}
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
