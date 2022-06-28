@@ -1,0 +1,134 @@
+openapi: '3.0.2'
+info:
+  title: rVPN Control Plane API
+  version: '1.0'
+servers:
+  - url: https://{instance}/api/v1
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              description: Human-readable error description 
+          required:
+            - message
+      required:
+        - error
+    ListTargetsResponse:
+      type: array
+      items:
+        type: object
+        properties:
+          name:
+            type: string
+        required:
+          - name
+    NewConnectionRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: human-readable machine name
+      required:
+        - identifier
+        - name
+    NewConnectionResponse:
+      type: object
+      properties:
+        config:
+          $ref: "#/components/schemas/ConnectionConfig"
+        id:
+          type: string
+      required:
+        - config
+    GetConnectionResponse:
+      type: object
+      properties:
+        config:
+          $ref: "#/components/schemas/ConnectionConfig"
+      required:
+        - config
+
+    ConnectionConfig:
+      type: string
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    
+paths:
+  /target/:
+    get:
+      summary: Returns available connection targets
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListTargetsResponse"
+  /target/{target}/connection:
+    post:
+      summary: Creates a new device connection on a target
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewConnectionRequest"
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewConnectionResponse"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+  /target/{target}/connection/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GetConnectionResponse"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/login:
+    get:
+      summary: User login page
+      description: |-
+        User login page - send the user here in a browser to get an auth token;
+        this is *not* an API route.
+      parameters:
+        - name: callback
+          in: query
+          required: true
+          description: URL to redirect to on auth success
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Login page
