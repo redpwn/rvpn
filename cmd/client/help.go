@@ -7,7 +7,7 @@ const helpMsg = `Usage: rvpn <command> [arguments]
 Available commands are:
 
 	login      - login and authenticate client
-	ls 	       - list available rVPN profiles
+	ls         - list available rVPN profiles
 	connect    - connect to a rVPN profile
 	disconnect - disconnect current rVPN profile
 
