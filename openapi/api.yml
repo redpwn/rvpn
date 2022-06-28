@@ -10,6 +10,19 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
+  parameters:
+    target:
+      name: target
+      in: path
+      required: true
+      schema:
+        type: string
+    id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
   schemas:
     Error:
       type: object
@@ -87,6 +100,8 @@ paths:
       summary: Creates a new device connection on a target
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/target'
       requestBody:
         required: true
         content:
@@ -106,6 +121,9 @@ paths:
     get:
       security:
         - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/target"
+        - $ref: "#/components/parameters/id"
       responses:
         '200':
           description: OK
