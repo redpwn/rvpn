@@ -18,7 +18,7 @@ type WgConfig struct {
 	ClientCidr string
 	ServerIp   string
 	ServerPort string
-	DnsIP      string
+	DnsIp      string
 }
 
 //go:embed templates/template.conf
@@ -67,7 +67,7 @@ func ConnectProfile(profile string) error {
 		ClientCidr: "/24",
 		ServerIp:   "jmy.li",
 		ServerPort: "21820",
-		DnsIP:      "1.1.1.1",
+		DnsIp:      "1.1.1.1",
 	}
 
 	profilePath, err := getProfilePath(profile)
