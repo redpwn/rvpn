@@ -114,7 +114,7 @@ components:
             $ref: "#/components/schemas/Error"
 
 paths:
-  /api/target/:
+  /target/:
     get:
       summary: Returns available connection targets, this is NOT exhaustive
       security:
@@ -126,7 +126,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListTargetsResponse"
-  /api/target/{target}/connection:
+  /target/{target}/connection:
     post:
       summary: Creates a new device connection on a target
       security:
@@ -148,7 +148,7 @@ paths:
                 $ref: "#/components/schemas/NewConnectionResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/target/{target}/connection/{id}:
+  /target/{target}/connection/{id}:
     get:
       security:
         - bearerAuth: []
