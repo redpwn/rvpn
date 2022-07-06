@@ -164,8 +164,8 @@ paths:
                 $ref: "#/components/schemas/GetConnectionResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/target/{target}/create:
-    get:
+  /api/target/{target}:
+    put:
       security:
         - bearerAuth: []
       parameters:
@@ -175,8 +175,7 @@ paths:
           description: OK
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/target/{target}/update:
-    post:
+    patch:
       security:
         - bearerAuth: []
       parameters:
