@@ -8,6 +8,7 @@ Available commands are:
 
 	login      - login and authenticate client
 	ls         - list available rVPN profiles
+	status     - show current status of rVPN
 	connect    - connect to a rVPN profile
 	disconnect - disconnect current rVPN profile
 
