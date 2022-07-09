@@ -1,15 +1,9 @@
 package main
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gofiber/fiber/v2"
+)
 
-func (a *app) GetTarget(c *gin.Context) {
-
-}
-
-func (a *app) PostTargetTargetConnection(c *gin.Context, target Target) {
-
-}
-
-func (a *app) GetTargetTargetConnectionId(c *gin.Context, target Target, id Id) {
-
+func (a *app) targets(c *fiber.Ctx) error {
+	return c.SendString("TODO")
 }

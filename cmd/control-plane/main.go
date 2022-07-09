@@ -1,21 +1,13 @@
 package main
 
-//go:generate go run github.com/deepmap/oapi-codegen/cmd/oapi-codegen --config=oapi-codegen-config.yaml ../../openapi/api.yml
-
 import (
-	"fmt"
-	"time"
-
 	"github.com/caarlos0/env/v6"
-	ginzap "github.com/gin-contrib/zap"
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
 )
 
 type config struct {
-	Production  bool   `env:"API_PRODUCTION"`
-	BindAddress string `env:"BIND_ADDRESS"`
-	Port        int    `env:"PORT" envDefault:"8080"`
+	Production bool `env:"API_PRODUCTION"`
 }
 
 type app struct {
@@ -31,7 +23,6 @@ func main() {
 	var log *zap.Logger
 	if cfg.Production {
 		log, _ = zap.NewProduction()
-		gin.SetMode(gin.ReleaseMode)
 	} else {
 		log, _ = zap.NewDevelopment()
 	}
@@ -40,15 +31,14 @@ func main() {
 		log: log,
 	}
 
-	r := gin.New()
-	r.Use(ginzap.Ginzap(log, time.RFC3339, true))
-	r.Use(ginzap.RecoveryWithZap(log, true))
+	r := fiber.New()
 
-	RegisterHandlers(r, a)
+	r.Get("/", func(c *fiber.Ctx) error {
+		return c.SendString("will send web client from here")
+	})
 
-	listenAddress := fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.Port)
-	log.Info("start", zap.String("address", listenAddress))
-	if err := r.Run(listenAddress); err != nil {
-		log.Fatal("listen", zap.Error(err))
-	}
+	r.Get("/api/targets", a.targets)
+
+	log.Info("control-plane started")
+	r.Listen(":8080")
 }
