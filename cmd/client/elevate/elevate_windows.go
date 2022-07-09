@@ -40,29 +40,6 @@ func CheckAdmin() (bool, error) {
 	return member, nil
 }
 
-func RunMeElevated() {
-	// taken from: https://gist.github.com/jerblack/d0eb182cc5a1c1d92d92a4c4fcc416c6
-	verb := "runas"
-	exe, _ := os.Executable()
-	fmt.Println("wgPath", exe)
-	cwd, _ := os.Getwd()
-	args := strings.Join(os.Args[1:], " ")
-
-	verbPtr, _ := syscall.UTF16PtrFromString(verb)
-	exePtr, _ := syscall.UTF16PtrFromString(exe)
-	cwdPtr, _ := syscall.UTF16PtrFromString(cwd)
-	argPtr, _ := syscall.UTF16PtrFromString(args)
-
-	fmt.Println(exe, cwd)
-
-	var showCmd int32 = 1 //SW_NORMAL
-
-	err := windows.ShellExecute(0, verbPtr, exePtr, argPtr, cwdPtr, showCmd)
-	if err != nil {
-		fmt.Println(err)
-	}
-}
-
 func RunWGCmdElevated(cmd string) {
 	wgPathRaw, err := exec.Command("where", "wireguard").Output()
 	if err != nil {
@@ -81,14 +58,12 @@ func RunWGCmdElevated(cmd string) {
 	exe := "C:\\Windows\\System32\\cmd.exe"
 	cwd, _ := os.Getwd()
 	args := `/C "wireguard ` + cmd + `"`
-	fmt.Println(args)
 
 	verbPtr, _ := syscall.UTF16PtrFromString(verb)
 	exePtr, _ := syscall.UTF16PtrFromString(exe)
 	cwdPtr, _ := syscall.UTF16PtrFromString(cwd)
 	argPtr, _ := syscall.UTF16PtrFromString(args)
-
-	var showCmd int32 = 1 //SW_NORMAL
+	showCmd := int32(windows.SW_HIDE)
 
 	err = windows.ShellExecute(0, verbPtr, exePtr, argPtr, cwdPtr, showCmd)
 	if err != nil {
