@@ -52,12 +52,9 @@ components:
         name:
           type: string
           description: human-readable machine name
-        pubkey:
-          type: string
-          description: public key associated with the device
       required:
+        - identifier
         - name
-        - pubkey
     NewConnectionResponse:
       type: object
       properties:
@@ -65,6 +62,8 @@ components:
           $ref: "#/components/schemas/ConnectionConfig"
         id:
           type: string
+      required:
+        - config
     GetConnectionResponse:
       type: object
       properties:
@@ -75,6 +74,9 @@ components:
     ConnectionConfig:
       type: object
       properties:
+        privateKey:
+          type: string
+          description: private key to use for wg profile
         publicKey:
           type: string
           description: public key to use for wg profile
@@ -93,18 +95,6 @@ components:
         dnsIp:
           type: string
           description: ip of the DNS server for the client to use
-    UpdateTarget:
-      type: object
-      properties:
-        userEmail:
-          type: string
-          description: email of the user to modify
-        action:
-          type: string
-          description: action to complete for user (modify / delete)
-        userType:
-          type: string
-          description: type of user (admin / user), if modifying
   responses:
     Unauthorized:
       description: Unauthorized
@@ -114,9 +104,9 @@ components:
             $ref: "#/components/schemas/Error"
 
 paths:
-  /api/target/:
+  /target/:
     get:
-      summary: Returns available connection targets, this is NOT exhaustive
+      summary: Returns available connection targets
       security:
         - bearerAuth: []
       responses:
@@ -126,7 +116,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListTargetsResponse"
-  /api/target/{target}/connection:
+  /target/{target}/connection:
     post:
       summary: Creates a new device connection on a target
       security:
@@ -148,7 +138,7 @@ paths:
                 $ref: "#/components/schemas/NewConnectionResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/target/{target}/connection/{id}:
+  /target/{target}/connection/{id}:
     get:
       security:
         - bearerAuth: []
@@ -164,45 +154,18 @@ paths:
                 $ref: "#/components/schemas/GetConnectionResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /api/target/{target}/create:
-    get:
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/target"
-      responses:
-        "200":
-          description: OK
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-  /api/target/{target}/update:
-    post:
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/target"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateTarget"
-      responses:
-        "200":
-          description: OK
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+
   /auth/login:
     get:
-      summary: OAuth redirect handler
+      summary: User login page
       description: |-
-        User login page - send the user here in a browser to get an auth token and complete the OAuth flow;
+        User login page - send the user here in a browser to get an auth token;
         this is *not* an API route.
       parameters:
-        - name: code
+        - name: callback
           in: query
           required: true
-          description: code response from Google OAuth
+          description: URL to redirect to on auth success
           schema:
             type: string
       responses:
