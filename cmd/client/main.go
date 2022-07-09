@@ -27,6 +27,7 @@ func main() {
 				fmt.Println(token)
 			} else {
 				// token was provided
+				fmt.Println("TODO NO TOKEN PROVIDED")
 			}
 		case "list":
 			fmt.Println("list")
