@@ -16,9 +16,10 @@ import (
 )
 
 type rVpnState struct {
-	PrivateKey    string `json:"privatekey"`
-	PublicKey     string `json:"publickey"`
-	ActiveProfile string `json:"activeprofile"`
+	PrivateKey       string `json:"privatekey"`
+	PublicKey        string `json:"publickey"`
+	ActiveProfile    string `json:"activeprofile"`
+	ControlPlaneAuth string `json:"controlplaneauth"`
 }
 
 type WgConfig struct {
