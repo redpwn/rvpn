@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/redpwn/rvpn/cmd/client/elevate"
 	"github.com/redpwn/rvpn/cmd/client/wg"
 	flag "github.com/spf13/pflag"
 )
 
 func main() {
 	flag.Parse()
-	admin, _ := elevate.CheckAdmin()
 
 	err := wg.InitWgClient()
 	if err != nil {
@@ -34,17 +32,32 @@ func main() {
 			fmt.Println("list")
 		case "connect":
 			if profile := flag.Arg(1); profile != "" {
-				if !admin {
-					elevate.RunMeElevated()
-				} else {
-					// we are in admin mode, attempt to connect
-					wg.ConnectProfile(profile)
+				err := wg.ConnectProfile(profile)
+				if err != nil {
+					fmt.Println("something went wrong while connecting to " + profile)
+					os.Exit(1)
 				}
 			} else {
 				fmt.Println("missing required profile, rvpn connect [profile]")
 			}
 		case "disconnect":
-			fmt.Println("disconnect")
+			err := wg.DisconnectProfile()
+			if err != nil {
+				fmt.Println("something went wrong while disconnecting")
+				os.Exit(1)
+			}
+		case "status":
+			rVpnStateLocal, err := wg.GetRVpnState()
+			if err != nil {
+				fmt.Println("something went wrong while getting state")
+				os.Exit(1)
+			}
+
+			if rVpnStateLocal.ActiveProfile == "" {
+				fmt.Println("not currently connected to a profile")
+			} else {
+				fmt.Println("currently connected to " + rVpnStateLocal.ActiveProfile)
+			}
 		default:
 			fmt.Println("command not found, run 'rvpn help' for help")
 		}

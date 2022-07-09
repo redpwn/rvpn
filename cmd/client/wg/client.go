@@ -15,7 +15,7 @@ import (
 	"github.com/redpwn/rvpn/cmd/client/elevate"
 )
 
-type rVpnState struct {
+type RVpnState struct {
 	PrivateKey       string `json:"privatekey"`
 	PublicKey        string `json:"publickey"`
 	ActiveProfile    string `json:"activeprofile"`
@@ -45,24 +45,24 @@ func getRVpnStatePath() (string, error) {
 	return path.Join(configDir, "rvpn", "state.json"), nil
 }
 
-func getRVpnState() (rVpnState, error) {
+func GetRVpnState() (RVpnState, error) {
 	rVpnStateFile, err := getRVpnStatePath()
 	if err != nil {
-		return rVpnState{}, err
+		return RVpnState{}, err
 	}
 
 	rVpnStateData, err := os.ReadFile(rVpnStateFile)
 	if err != nil {
-		return rVpnState{}, err
+		return RVpnState{}, err
 	}
 
-	var rVpnStateObj rVpnState
+	var rVpnStateObj RVpnState
 	json.Unmarshal(rVpnStateData, &rVpnStateObj)
 
 	return rVpnStateObj, nil
 }
 
-func setRVpnState(rVpnStateData rVpnState) error {
+func SetRVpnState(rVpnStateData RVpnState) error {
 	rVpnStateFile, err := getRVpnStatePath()
 	if err != nil {
 		return err
@@ -89,7 +89,7 @@ func setRVpnState(rVpnStateData rVpnState) error {
 
 func getWgKeys() (string, string, error) {
 	// returns private key, public key, error
-	rVpnStateLocal, err := getRVpnState()
+	rVpnStateLocal, err := GetRVpnState()
 	if err != nil {
 		return "", "", nil
 	}
@@ -116,7 +116,7 @@ func getWgKeys() (string, string, error) {
 		pubKey := strings.TrimRight(pubKeyBuf.String(), "\r\n")
 		rVpnStateLocal.PrivateKey = privKey
 		rVpnStateLocal.PublicKey = pubKey
-		setRVpnState(rVpnStateLocal)
+		SetRVpnState(rVpnStateLocal)
 		return privKey, pubKey, nil
 	} else {
 		return rVpnStateLocal.PrivateKey, rVpnStateLocal.PublicKey, nil
@@ -155,6 +155,16 @@ func writeWgConfig(profilePath string, userConfig WgConfig) error {
 }
 
 func ConnectProfile(profile string) error {
+	rVpnStateLocal, err := GetRVpnState()
+	if err != nil {
+		return err
+	}
+
+	if rVpnStateLocal.ActiveProfile != "" {
+		fmt.Println("already connected to a profile")
+		os.Exit(1)
+	}
+
 	fmt.Println("connecting to " + profile)
 
 	privKey, pubKey, err := getWgKeys()
@@ -164,7 +174,7 @@ func ConnectProfile(profile string) error {
 
 	fmt.Println("curr keys: " + privKey + " " + pubKey)
 
-	// TODO: get wgconfig from API
+	// TODO: get connection info from controlplane from API
 	userConfig := WgConfig{
 		PrivateKey: "--",
 		PublicKey:  "Xb5+rEyb4eozBWYruk5iA7shr8miaQMka937dagG20c=",
@@ -186,6 +196,33 @@ func ConnectProfile(profile string) error {
 	}
 
 	elevate.RunWGCmdElevated("/installtunnelservice " + profilePath)
+
+	// TODO: Do health checks to see if the connection works
+	// Potential idea is to ping gateway which we will hardcode to a certain IP or receive from control-plane
+
+	rVpnStateLocal.ActiveProfile = profile
+	SetRVpnState(rVpnStateLocal)
+
+	fmt.Println("connected to " + profile)
+
+	return nil
+}
+
+func DisconnectProfile() error {
+	rVpnStateLocal, err := GetRVpnState()
+	if err != nil {
+		return err
+	}
+
+	if rVpnStateLocal.ActiveProfile == "" {
+		fmt.Println("not currently connected to a profile")
+		return nil
+	}
+
+	elevate.RunWGCmdElevated("/uninstalltunnelservice " + rVpnStateLocal.ActiveProfile)
+
+	rVpnStateLocal.ActiveProfile = ""
+	SetRVpnState(rVpnStateLocal)
 
 	return nil
 }
@@ -211,7 +248,7 @@ func InitWgClient() error {
 
 	if _, err := os.Stat(rVpnStateFile); os.IsNotExist(err) {
 		// if no rVpnState config then set it to be empty
-		setRVpnState(rVpnState{})
+		SetRVpnState(RVpnState{})
 	}
 
 	rVpnProfileDir := path.Join(configDir, "rvpn", "profiles")
