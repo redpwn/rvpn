@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/caarlos0/env/v6 v6.9.3
 	github.com/gofiber/fiber/v2 v2.35.0
+	github.com/lib/pq v1.10.6
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.21.0
 	golang.org/x/sys v0.0.0-20220513210249-45d2b4557a2a
