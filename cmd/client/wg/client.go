@@ -20,6 +20,7 @@ type RVpnState struct {
 	PublicKey        string `json:"publickey"`
 	ActiveProfile    string `json:"activeprofile"`
 	ControlPlaneAuth string `json:"controlplaneauth"`
+	ControlPlaneId   string `json:"controlplaneid"` // this is issued by the control plane to faciliate connections
 }
 
 type WgConfig struct {
