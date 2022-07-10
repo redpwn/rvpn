@@ -3,8 +3,13 @@
 CREATE TABLE targets (
     name VARCHAR ( 50 ) PRIMARY KEY,
     owner VARCHAR ( 50 ) NOT NULL,
-    serer_ip VARCHAR ( 16 ),
-    server_vpn_port VARCHAR ( 5 )
+    network_ip VARCHAR ( 16 ) NOT NULL,
+    network_cidr VARCHAR ( 5 ) NOT NULL,
+    dns_ip VARCHAR ( 16 ) NOT NULL,
+    server_public_ip VARCHAR ( 16 ),
+    server_public_vpn_port VARCHAR ( 5 ),
+    server_internal_ip VARCHAR ( 16 ),
+    server_internal_cidr VARCHAR ( 5 )
 );
 
 -- acls which control access to a target, allow only
@@ -20,5 +25,7 @@ CREATE TABLE connections (
     id VARCHAR ( 50 ),
     target VARCHAR ( 50 ),
     name VARCHAR ( 50 ),
-    pubkey VARCHAR ( 50 )
+    pubkey VARCHAR ( 50 ),
+    client_ip VARCHAR ( 16 ),
+    client_cidr VARCHAR ( 5 )
 );

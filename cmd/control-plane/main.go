@@ -17,7 +17,7 @@ type config struct {
 type app struct {
 	log       *zap.Logger
 	db        *sql.DB
-	jwtSecret string
+	jwtSecret []byte
 }
 
 func main() {
@@ -42,7 +42,7 @@ func main() {
 	a := &app{
 		log:       log,
 		db:        db,
-		jwtSecret: cfg.JwtSecret,
+		jwtSecret: []byte(cfg.JwtSecret),
 	}
 
 	r := fiber.New()
@@ -54,7 +54,7 @@ func main() {
 	api := r.Group("/api")
 	v1 := api.Group("/v1")
 
-	v1.Get("/targets", a.targets)
+	v1.Get("/target", a.AuthUserMiddleware, a.getTargets)
 
 	log.Info("control-plane started")
 	r.Listen(":8080")
