@@ -10,8 +10,9 @@ import (
 )
 
 type config struct {
-	Production bool   `env:"API_PRODUCTION"`
-	JwtSecret  string `evn:"JWT_SECRET"`
+	Production  bool   `env:"API_PRODUCTION"`
+	JwtSecret   string `env:"JWT_SECRET"`
+	PostgresURL string `env:"POSTGRES_URL"`
 }
 
 type app struct {
@@ -32,9 +33,10 @@ func main() {
 	} else {
 		log, _ = zap.NewDevelopment()
 		cfg.JwtSecret = "DEVSECRET"
+		cfg.PostgresURL = "postgres://rvpn:rvpn@localhost/rvpn"
 	}
 
-	db, err := sql.Open("sqlite3", "./rvpn.db")
+	db, err := sql.Open("postgres", cfg.PostgresURL)
 	if err != nil {
 		log.Error("could not connect to db", zap.Error(err))
 	}
@@ -55,6 +57,7 @@ func main() {
 	v1 := api.Group("/v1")
 
 	v1.Get("/target", a.AuthUserMiddleware, a.getTargets)
+	v1.Patch("/target/:target/connection", a.AuthUserMiddleware, a.createConnection)
 
 	log.Info("control-plane started")
 	r.Listen(":8080")
