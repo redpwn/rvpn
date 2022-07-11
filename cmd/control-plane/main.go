@@ -57,6 +57,7 @@ func main() {
 	v1 := api.Group("/v1")
 
 	v1.Get("/target", a.AuthUserMiddleware, a.getTargets)
+	v1.Put("/target/:target", a.AuthUserMiddleware, a.createTarget)
 	v1.Patch("/target/:target/connection", a.AuthUserMiddleware, a.createConnection)
 
 	log.Info("control-plane started")

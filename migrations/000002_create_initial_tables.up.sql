@@ -1,31 +1,31 @@
 -- targets are the basic unit of rVPN and represent a VPN server
 
 CREATE TABLE targets (
-    name VARCHAR ( 50 ) PRIMARY KEY,
-    owner VARCHAR ( 50 ) NOT NULL,
-    network_ip VARCHAR ( 16 ) NOT NULL,
-    network_cidr VARCHAR ( 5 ) NOT NULL,
-    dns_ip VARCHAR ( 16 ) NOT NULL,
-    server_public_ip VARCHAR ( 16 ),
-    server_public_vpn_port VARCHAR ( 5 ),
-    server_internal_ip VARCHAR ( 16 ),
-    server_internal_cidr VARCHAR ( 5 )
+    name VARCHAR PRIMARY KEY,
+    owner VARCHAR NOT NULL,
+    network_ip VARCHAR NOT NULL,
+    network_cidr VARCHAR NOT NULL,
+    dns_ip VARCHAR NOT NULL,
+    server_public_ip VARCHAR,
+    server_public_vpn_port VARCHAR,
+    server_internal_ip VARCHAR,
+    server_internal_cidr VARCHAR
 );
 
 -- acls which control access to a target, allow only
 
 CREATE TABLE target_acl (
-    principal VARCHAR ( 50 ),
-    target VARCHAR ( 50 )
+    principal VARCHAR,
+    target VARCHAR
 );
 
 -- each connection identifies a device
 
 CREATE TABLE connections (
-    id VARCHAR ( 50 ),
-    target VARCHAR ( 50 ),
-    name VARCHAR ( 50 ),
-    pubkey VARCHAR ( 50 ),
-    client_ip VARCHAR ( 16 ),
-    client_cidr VARCHAR ( 5 )
+    id VARCHAR,
+    target VARCHAR,
+    name VARCHAR,
+    pubkey VARCHAR,
+    client_ip VARCHAR,
+    client_cidr VARCHAR
 );
