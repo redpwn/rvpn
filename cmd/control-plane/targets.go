@@ -127,7 +127,7 @@ func (a *app) createConnection(c *fiber.Ctx) error {
 		return c.Status(400).JSON(ErrorResponse("target not found"))
 	}
 
-	// perform liveness probe of the server
+	// perform liveness probe of the server; TODO: check heartbeat to ensure that last heartbeat was within 10 minutes
 	if serverPubkey == "" || serverPubIp == "" || serverPubVpnPort == "" {
 		return c.Status(503).JSON(ErrorResponse("server is not currently available"))
 	}
