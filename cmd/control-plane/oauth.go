@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"go.uber.org/zap"
@@ -125,6 +126,13 @@ func (a *app) oauthLogin(c *fiber.Ctx) error {
 			return c.Status(500).JSON(ErrorResponse("something went wrong"))
 		}
 
-		return c.SendString("signed in as user " + userEmailStr + " with token " + userToken)
+		c.Cookie(&fiber.Cookie{
+			Name:     "auth",
+			Value:    userToken,
+			Expires:  time.Now().Add(time.Hour * 24 * 365),
+			HTTPOnly: true,
+			SameSite: "lax",
+		})
+		return c.SendString("signed in as user " + userEmailStr)
 	}
 }

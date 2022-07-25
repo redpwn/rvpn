@@ -77,7 +77,8 @@ func main() {
 
 	v1.Get("/target", a.AuthUserMiddleware, a.getTargets)
 	v1.Put("/target/:target", a.AuthUserMiddleware, a.createTarget)
-	v1.Patch("/target/:target/connection", a.AuthUserMiddleware, a.createConnection)
+	v1.Post("/target/:target/connect", a.AuthUserMiddleware, a.createConnection)
+	v1.Post("/target/:target/serve", a.AuthUserMiddleware, a.createConnection)
 
 	v1.Get("/auth/login", a.oauthLogin)
 

@@ -58,6 +58,21 @@ components:
       required:
         - name
         - pubkey
+    NewServeRequest:
+      type: object
+      properties:
+        pubkey:
+          type: string
+          description: public key associated with the server
+        public_ip:
+          type: string
+          description: public ip of the server
+        public_vpn_port:
+          type: string
+          description: public vpn port of the server
+      required:
+        - name
+        - pubkey
     NewConnectionResponse:
       type: object
       properties:
@@ -126,6 +141,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListTargetsResponse"
+  /target/{target}/serve:
+    post:
+      summary: Start serving VPN traffic from a server
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/target"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewServeRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewConnectionResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
   /target/{target}/connection:
     post:
       summary: Creates a new device connection on a target
@@ -150,6 +187,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
   /target/{target}/connection/{id}:
     get:
+      summary: Gets existing connection info from target
       security:
         - bearerAuth: []
       parameters:
@@ -166,6 +204,7 @@ paths:
           $ref: "#/components/responses/Unauthorized"
   /target/{target}:
     put:
+      summary: Create a target
       security:
         - bearerAuth: []
       parameters:
@@ -176,6 +215,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
     patch:
+      summary: Update a target
       security:
         - bearerAuth: []
       parameters:
