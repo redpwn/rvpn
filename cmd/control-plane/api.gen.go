@@ -61,6 +61,18 @@ type NewConnectionResponse struct {
 	Id     *string           `json:"id,omitempty"`
 }
 
+// NewServeRequest defines model for NewServeRequest.
+type NewServeRequest struct {
+	// public key associated with the server
+	Pubkey string `json:"pubkey"`
+
+	// public ip of the server
+	PublicIp *string `json:"public_ip,omitempty"`
+
+	// public vpn port of the server
+	PublicVpnPort *string `json:"public_vpn_port,omitempty"`
+}
+
 // UpdateTarget defines model for UpdateTarget.
 type UpdateTarget struct {
 	// action to complete for user (modify / delete)
@@ -94,8 +106,14 @@ type PatchTargetTargetJSONBody = UpdateTarget
 // PostTargetTargetConnectionJSONBody defines parameters for PostTargetTargetConnection.
 type PostTargetTargetConnectionJSONBody = NewConnectionRequest
 
+// PostTargetTargetServeJSONBody defines parameters for PostTargetTargetServe.
+type PostTargetTargetServeJSONBody = NewServeRequest
+
 // PatchTargetTargetJSONRequestBody defines body for PatchTargetTarget for application/json ContentType.
 type PatchTargetTargetJSONRequestBody = PatchTargetTargetJSONBody
 
 // PostTargetTargetConnectionJSONRequestBody defines body for PostTargetTargetConnection for application/json ContentType.
 type PostTargetTargetConnectionJSONRequestBody = PostTargetTargetConnectionJSONBody
+
+// PostTargetTargetServeJSONRequestBody defines body for PostTargetTargetServe for application/json ContentType.
+type PostTargetTargetServeJSONRequestBody = PostTargetTargetServeJSONBody

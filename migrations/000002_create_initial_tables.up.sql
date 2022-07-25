@@ -6,10 +6,12 @@ CREATE TABLE targets (
     network_ip VARCHAR NOT NULL,
     network_cidr VARCHAR NOT NULL,
     dns_ip VARCHAR NOT NULL,
+    server_pubkey VARCHAR,
     server_public_ip VARCHAR,
     server_public_vpn_port VARCHAR,
     server_internal_ip VARCHAR,
-    server_internal_cidr VARCHAR
+    server_internal_cidr VARCHAR,
+    server_heartbeat VARCHAR
 );
 
 -- acls which control access to a target, allow only
