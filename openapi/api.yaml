@@ -163,7 +163,7 @@ paths:
                 $ref: "#/components/schemas/NewConnectionResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /target/{target}/connection:
+  /target/{target}/connect:
     post:
       summary: Creates a new device connection on a target
       security:
@@ -185,7 +185,7 @@ paths:
                 $ref: "#/components/schemas/NewConnectionResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
-  /target/{target}/connection/{id}:
+  /target/{target}/connect/{id}:
     get:
       summary: Gets existing connection info from target
       security:
