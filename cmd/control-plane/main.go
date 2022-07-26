@@ -7,6 +7,7 @@ import (
 
 	"github.com/caarlos0/env/v6"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/websocket/v2"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
 )
@@ -28,6 +29,13 @@ type app struct {
 	baseURL     string
 	oauthId     string
 	oauthSecret string
+}
+
+func updateWsMiddlware(c *fiber.Ctx) error {
+	if websocket.IsWebSocketUpgrade(c) {
+		return c.Next()
+	}
+	return fiber.ErrUpgradeRequired
 }
 
 func main() {
@@ -78,7 +86,8 @@ func main() {
 	v1.Get("/target", a.AuthUserMiddleware, a.getTargets)
 	v1.Put("/target/:target", a.AuthUserMiddleware, a.createTarget)
 	v1.Post("/target/:target/connect", a.AuthUserMiddleware, a.createConnection)
-	v1.Post("/target/:target/serve", a.AuthUserMiddleware, a.createConnection)
+
+	v1.Get("/target/:target/serve", updateWsMiddlware, a.createConnection)
 
 	v1.Get("/auth/login", a.oauthLogin)
 

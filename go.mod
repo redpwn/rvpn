@@ -10,14 +10,17 @@ require (
 	github.com/lib/pq v1.10.6
 	github.com/spf13/pflag v1.0.5
 	go.uber.org/zap v1.21.0
-	golang.org/x/sys v0.0.0-20220513210249-45d2b4557a2a
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f
 	inet.af/netaddr v0.0.0-20220617031823-097006376321
 )
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
-	github.com/klauspost/compress v1.15.0 // indirect
+	github.com/fasthttp/websocket v1.5.0 // indirect
+	github.com/gofiber/websocket/v2 v2.0.23 // indirect
+	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/savsgio/gotils v0.0.0-20220530130905-52f3993e8d6d // indirect
 	github.com/stretchr/testify v1.7.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.38.0 // indirect

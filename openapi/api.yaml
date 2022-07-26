@@ -71,8 +71,9 @@ components:
           type: string
           description: public vpn port of the server
       required:
-        - name
         - pubkey
+        - public_ip
+        - public_vpn_port
     NewConnectionResponse:
       type: object
       properties:
