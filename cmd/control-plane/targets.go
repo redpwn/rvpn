@@ -187,30 +187,11 @@ func (a *app) createConnection(c *fiber.Ctx) error {
 		return c.Status(503).JSON(ErrorResponse("no available ips, retry at a later time"))
 	}
 
-	// we found an ip to allocate, use a transaction to ensure this is not raced
-	tx, err := a.db.BeginTx(c.Context(), nil)
-	if err != nil {
-		a.log.Error("failed to begin transaction", zap.Error(err))
-		return c.Status(500).JSON(ErrorResponse("something went wrong"))
-	}
-	defer tx.Rollback()
-
-	err = tx.QueryRowContext(c.Context(), "SELECT id FROM connections WHERE target=$1 AND client_ip=$2", target, ipToAllocate).Scan(&targetId)
-	if err != sql.ErrNoRows {
-		a.log.Error("failed to acquire ip in transaction", zap.Error(err))
-		return c.Status(503).JSON(ErrorResponse("failed to acquire ip, retry at a later time"))
-	}
-
+	// we found an ip to allocate, ensure this is not raced via unique db constraint
 	connectionId := uuid.New().String()
-	_, err = tx.ExecContext(c.Context(), "INSERT INTO connections VALUES ($1, $2, $3, $4, $5, $6)", connectionId, target, reqBody.Name, reqBody.Pubkey, ipToAllocate, serverInternalCidr)
+	_, err = a.db.ExecContext(c.Context(), "INSERT INTO connections VALUES ($1, $2, $3, $4, $5, $6)", connectionId, target, reqBody.Name, reqBody.Pubkey, ipToAllocate, serverInternalCidr)
 	if err != nil {
 		a.log.Error("failed to insert new connection", zap.Error(err))
-		return c.Status(500).JSON(ErrorResponse("something went wrong"))
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		a.log.Error("something went wrong while commiting", zap.Error(err))
 		return c.Status(500).JSON(ErrorResponse("something went wrong"))
 	}
 

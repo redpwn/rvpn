@@ -29,5 +29,6 @@ CREATE TABLE connections (
     name VARCHAR,
     pubkey VARCHAR,
     client_ip VARCHAR,
-    client_cidr VARCHAR
+    client_cidr VARCHAR,
+    UNIQUE (target, client_ip)
 );
