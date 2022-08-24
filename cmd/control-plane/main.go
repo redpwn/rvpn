@@ -31,7 +31,7 @@ type app struct {
 	oauthSecret string
 }
 
-func updateWsMiddlware(c *fiber.Ctx) error {
+func upgradeWsMiddlware(c *fiber.Ctx) error {
 	if websocket.IsWebSocketUpgrade(c) {
 		return c.Next()
 	}
@@ -87,7 +87,7 @@ func main() {
 	v1.Put("/target/:target", a.AuthUserMiddleware, a.createTarget)
 	v1.Post("/target/:target/connect", a.AuthUserMiddleware, a.createConnection)
 
-	v1.Get("/target/:target/serve", updateWsMiddlware, a.createConnection)
+	v1.Get("/target/:target/serve", upgradeWsMiddlware, a.createConnection)
 
 	v1.Get("/auth/login", a.oauthLogin)
 
