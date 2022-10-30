@@ -7,27 +7,6 @@ const (
 	BearerAuthScopes = "bearerAuth.Scopes"
 )
 
-// ConnectionConfig defines model for ConnectionConfig.
-type ConnectionConfig struct {
-	// cidr for the client ip (e.g /24)
-	ClientCidr *string `json:"clientCidr,omitempty"`
-
-	// ip for the client to have on the VPN network
-	ClientIp *string `json:"clientIp,omitempty"`
-
-	// ip of the DNS server for the client to use
-	DnsIp *string `json:"dnsIp,omitempty"`
-
-	// public key to use for wg profile
-	PublicKey *string `json:"publicKey,omitempty"`
-
-	// ip for the rVPN server
-	ServerIp *string `json:"serverIp,omitempty"`
-
-	// port for the rVPN server
-	ServerPort *string `json:"serverPort,omitempty"`
-}
-
 // Error defines model for Error.
 type Error struct {
 	Error struct {
@@ -36,41 +15,24 @@ type Error struct {
 	} `json:"error"`
 }
 
-// GetConnectionResponse defines model for GetConnectionResponse.
-type GetConnectionResponse struct {
-	Config ConnectionConfig `json:"config"`
-}
-
 // ListTargetsResponse defines model for ListTargetsResponse.
 type ListTargetsResponse = []struct {
 	Name string `json:"name"`
 }
 
-// NewConnectionRequest defines model for NewConnectionRequest.
-type NewConnectionRequest struct {
-	// human-readable machine name
-	Name string `json:"name"`
-
-	// public key associated with the device
-	Pubkey string `json:"pubkey"`
+// RegisterDeviceRequest defines model for RegisterDeviceRequest.
+type RegisterDeviceRequest struct {
+	// hardware id of the device which wishes to connect
+	HardwareId *string `json:"hardwareId,omitempty"`
 }
 
-// NewConnectionResponse defines model for NewConnectionResponse.
-type NewConnectionResponse struct {
-	Config *ConnectionConfig `json:"config,omitempty"`
-	Id     *string           `json:"id,omitempty"`
-}
+// RegisterDeviceResponse defines model for RegisterDeviceResponse.
+type RegisterDeviceResponse struct {
+	// device id which has been assigned to the device
+	DeviceId *string `json:"deviceId,omitempty"`
 
-// NewServeRequest defines model for NewServeRequest.
-type NewServeRequest struct {
-	// public key associated with the server
-	Pubkey string `json:"pubkey"`
-
-	// public ip of the server
-	PublicIp string `json:"public_ip"`
-
-	// public vpn port of the server
-	PublicVpnPort string `json:"public_vpn_port"`
+	// device token which is signed and authenticates the device
+	DeviceToken *string `json:"deviceToken,omitempty"`
 }
 
 // UpdateTarget defines model for UpdateTarget.
@@ -84,9 +46,6 @@ type UpdateTarget struct {
 	// type of user (admin / user), if modifying
 	UserType *string `json:"userType,omitempty"`
 }
-
-// Id defines model for id.
-type Id = string
 
 // Target defines model for target.
 type Target = string
@@ -103,17 +62,11 @@ type GetAuthLoginParams struct {
 // PatchTargetTargetJSONBody defines parameters for PatchTargetTarget.
 type PatchTargetTargetJSONBody = UpdateTarget
 
-// PostTargetTargetConnectJSONBody defines parameters for PostTargetTargetConnect.
-type PostTargetTargetConnectJSONBody = NewConnectionRequest
-
-// PostTargetTargetServeJSONBody defines parameters for PostTargetTargetServe.
-type PostTargetTargetServeJSONBody = NewServeRequest
+// PostTargetTargetRegisterDeviceJSONBody defines parameters for PostTargetTargetRegisterDevice.
+type PostTargetTargetRegisterDeviceJSONBody = RegisterDeviceRequest
 
 // PatchTargetTargetJSONRequestBody defines body for PatchTargetTarget for application/json ContentType.
 type PatchTargetTargetJSONRequestBody = PatchTargetTargetJSONBody
 
-// PostTargetTargetConnectJSONRequestBody defines body for PostTargetTargetConnect for application/json ContentType.
-type PostTargetTargetConnectJSONRequestBody = PostTargetTargetConnectJSONBody
-
-// PostTargetTargetServeJSONRequestBody defines body for PostTargetTargetServe for application/json ContentType.
-type PostTargetTargetServeJSONRequestBody = PostTargetTargetServeJSONBody
+// PostTargetTargetRegisterDeviceJSONRequestBody defines body for PostTargetTargetRegisterDevice for application/json ContentType.
+type PostTargetTargetRegisterDeviceJSONRequestBody = PostTargetTargetRegisterDeviceJSONBody

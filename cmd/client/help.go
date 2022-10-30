@@ -11,6 +11,7 @@ Available commands are:
 	status     - show current status of rVPN
 	connect    - connect to a rVPN profile
 	disconnect - disconnect current rVPN profile
+	daemon     - start the rVPN daemon (windows only)
 
 Use "rvpn help <command>" for more information about a command`
 

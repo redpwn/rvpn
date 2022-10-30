@@ -120,7 +120,7 @@ func (a *app) oauthLogin(c *fiber.Ctx) error {
 			return c.Status(500).JSON(ErrorResponse("something went wrong"))
 		}
 
-		userToken, err := a.SignToken(userEmailStr)
+		userToken, err := a.SignUserToken(userEmailStr)
 		if err != nil {
 			a.log.Error("could not sign user token")
 			return c.Status(500).JSON(ErrorResponse("something went wrong"))

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"net/http"
 	"time"
 
@@ -23,7 +22,7 @@ type config struct {
 
 type app struct {
 	log         *zap.Logger
-	db          *sql.DB
+	db          *RVPNDatabase
 	jwtSecret   []byte
 	httpClient  *http.Client
 	baseURL     string
@@ -56,9 +55,9 @@ func main() {
 		cfg.OauthSecret = "--"
 	}
 
-	db, err := sql.Open("postgres", cfg.PostgresURL)
+	db, err := NewRVPNDatabase(cfg.PostgresURL)
 	if err != nil {
-		log.Error("could not connect to db", zap.Error(err))
+		log.Fatal("failed to create rVPN database", zap.Error(err))
 	}
 
 	client := http.Client{}
@@ -83,12 +82,16 @@ func main() {
 	api := r.Group("/api")
 	v1 := api.Group("/v1")
 
+	// target  routes
 	v1.Get("/target", a.AuthUserMiddleware, a.getTargets)
 	v1.Put("/target/:target", a.AuthUserMiddleware, a.createTarget)
-	v1.Post("/target/:target/connect", a.AuthUserMiddleware, a.createConnection)
+	v1.Post("/target/:target/register_device", a.AuthUserMiddleware, a.registerDevice)
 
-	v1.Get("/target/:target/serve", upgradeWsMiddlware, a.createConnection)
+	// websocket routes
+	v1.Get("/target/:target/serve", upgradeWsMiddlware, a.serveConnection)
+	v1.Get("/target/:target/connect", upgradeWsMiddlware, a.serveConnection)
 
+	// webapp login route
 	v1.Get("/auth/login", a.oauthLogin)
 
 	log.Info("control-plane started")

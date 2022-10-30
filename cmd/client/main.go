@@ -2,18 +2,19 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net/rpc"
 	"os"
 
-	"github.com/redpwn/rvpn/cmd/client/wg"
 	flag "github.com/spf13/pflag"
 )
 
 func main() {
 	flag.Parse()
 
-	err := wg.InitWgClient()
+	err := InitRVPNState()
 	if err != nil {
-		fmt.Println(err)
+		log.Printf("failed to initialize rVPN state: %v", err)
 		os.Exit(1)
 	}
 
@@ -24,16 +25,18 @@ func main() {
 		case "login":
 			if token := flag.Arg(1); token == "" {
 				// no token was provided
-				fmt.Println(token)
+				fmt.Println("missing required token, rvpn login [token]")
 			} else {
 				// token was provided
-				fmt.Println("TODO NO TOKEN PROVIDED")
+				fmt.Println("token provided")
 			}
 		case "list":
 			fmt.Println("list")
 		case "connect":
 			if profile := flag.Arg(1); profile != "" {
-				err := wg.ConnectProfile(profile)
+				EnsureDaemonStarted()
+
+				err := ConnectProfile(profile)
 				if err != nil {
 					fmt.Println("something went wrong while connecting to " + profile)
 					os.Exit(1)
@@ -42,23 +45,33 @@ func main() {
 				fmt.Println("missing required profile, rvpn connect [profile]")
 			}
 		case "disconnect":
-			err := wg.DisconnectProfile()
+			EnsureDaemonStarted()
+
+			err := DisconnectProfile()
 			if err != nil {
 				fmt.Println("something went wrong while disconnecting")
 				os.Exit(1)
 			}
 		case "status":
-			rVpnStateLocal, err := wg.GetRVpnState()
+			EnsureDaemonStarted()
+
+			client, err := rpc.Dial("tcp", "127.0.0.1:52370")
 			if err != nil {
-				fmt.Println("something went wrong while getting state")
+				fmt.Println("failed to connect to rVPN daemon")
 				os.Exit(1)
 			}
 
-			if rVpnStateLocal.ActiveProfile == "" {
-				fmt.Println("not currently connected to a profile")
-			} else {
-				fmt.Println("currently connected to " + rVpnStateLocal.ActiveProfile)
+			var rVPNState RVPNStatus
+			err = client.Call("RVPNDaemon.Status", "", &rVPNState)
+			if err != nil {
+				fmt.Println("failed to get status from rVPN daemon", err)
+				os.Exit(1)
 			}
+
+			fmt.Println(rVPNState)
+		case "daemon":
+			// start the rVPN daemon which is different based on user operating system
+			StartRVPNDaemon()
 		default:
 			fmt.Println("command not found, run 'rvpn help' for help")
 		}
