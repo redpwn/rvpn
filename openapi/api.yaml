@@ -46,69 +46,6 @@ components:
             type: string
         required:
           - name
-    NewConnectionRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          description: human-readable machine name
-        pubkey:
-          type: string
-          description: public key associated with the device
-      required:
-        - name
-        - pubkey
-    NewServeRequest:
-      type: object
-      properties:
-        pubkey:
-          type: string
-          description: public key associated with the server
-        public_ip:
-          type: string
-          description: public ip of the server
-        public_vpn_port:
-          type: string
-          description: public vpn port of the server
-      required:
-        - pubkey
-        - public_ip
-        - public_vpn_port
-    NewConnectionResponse:
-      type: object
-      properties:
-        config:
-          $ref: "#/components/schemas/ConnectionConfig"
-        id:
-          type: string
-    GetConnectionResponse:
-      type: object
-      properties:
-        config:
-          $ref: "#/components/schemas/ConnectionConfig"
-      required:
-        - config
-    ConnectionConfig:
-      type: object
-      properties:
-        publicKey:
-          type: string
-          description: public key to use for wg profile
-        clientIp:
-          type: string
-          description: ip for the client to have on the VPN network
-        clientCidr:
-          type: string
-          description: cidr for the client ip (e.g /24)
-        serverIp:
-          type: string
-          description: ip for the rVPN server
-        serverPort:
-          type: string
-          description: port for the rVPN server
-        dnsIp:
-          type: string
-          description: ip of the DNS server for the client to use
     UpdateTarget:
       type: object
       properties:
@@ -121,6 +58,21 @@ components:
         userType:
           type: string
           description: type of user (admin / user), if modifying
+    RegisterDeviceRequest:
+      type: object
+      properties:
+        hardwareId:
+          type: string
+          description: hardware id of the device which wishes to connect
+    RegisterDeviceResponse:
+      type: object
+      properties:
+        deviceId:
+          type: string
+          description: device id which has been assigned to the device
+        deviceToken:
+          type: string
+          description: device token which is signed and authenticates the device
   responses:
     Unauthorized:
       description: Unauthorized
@@ -132,7 +84,7 @@ components:
 paths:
   /target/:
     get:
-      summary: Returns available connection targets, this is NOT exhaustive
+      summary: Returns available connection targets
       security:
         - bearerAuth: []
       responses:
@@ -142,67 +94,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ListTargetsResponse"
-  /target/{target}/serve:
-    post:
-      summary: Start serving VPN traffic from a server
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/target"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/NewServeRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NewConnectionResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-  /target/{target}/connect:
-    post:
-      summary: Creates a new device connection on a target
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/target"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/NewConnectionRequest"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/NewConnectionResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-  /target/{target}/connect/{id}:
-    get:
-      summary: Gets existing connection info from target
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/target"
-        - $ref: "#/components/parameters/id"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GetConnectionResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
   /target/{target}:
     put:
       summary: Create a target
@@ -227,6 +118,52 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateTarget"
+      responses:
+        "200":
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /target/{target}/register_device:
+    post:
+      summary: Register a device on a target
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/target"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterDeviceRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterDeviceResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /target/{target}/serve:
+    get:
+      summary: WebSocket to start serving VPN traffic from a server
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/target"
+      responses:
+        "200":
+          description: OK
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /target/{target}/connect:
+    get:
+      summary: WebSocket to create a new device connection on a target
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/target"
       responses:
         "200":
           description: OK

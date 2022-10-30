@@ -17,18 +17,29 @@ CREATE TABLE targets (
 -- acls which control access to a target, allow only
 
 CREATE TABLE target_acl (
-    principal VARCHAR,
-    target VARCHAR
+    principal VARCHAR NOT NULL,
+    target VARCHAR NOT NULL,
+    access_type INTEGER
 );
 
--- each connection identifies a device
+-- each connection is associated with a device
 
 CREATE TABLE connections (
-    id VARCHAR,
-    target VARCHAR,
-    name VARCHAR,
-    pubkey VARCHAR,
+    id VARCHAR PRIMARY KEY,
+    target VARCHAR NOT NULL,
+    device_id VARCHAR NOT NULL,
+    pubkey VARCHAR NOT NULL,
     client_ip VARCHAR,
     client_cidr VARCHAR,
     UNIQUE (target, client_ip)
 );
+
+-- devices are represented by a principal, hardware id (can be overridden by user, just used for uniqueness)
+
+CREATE TABLE devices (
+    principal VARCHAR,
+    hardware_id VARCHAR,
+    device_id VARCHAR,
+    PRIMARY KEY (principal, hardware_id),
+    UNIQUE (device_id)
+)
