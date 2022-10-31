@@ -28,11 +28,16 @@ type WireguardDaemon struct {
 	DefaultGateway netip.Addr
 	ServerIP       netip.Prefix
 	InterfaceName  string
+
+	// internal variables used for managing the daemon
+	prevRoutes []*winipcfg.RouteData
 }
 
 // NewWireguardDaemon returns a new WireguardDaemon NOTE: this is uninitialized
 func NewWireguardDaemon() *WireguardDaemon {
-	return &WireguardDaemon{}
+	return &WireguardDaemon{
+		prevRoutes: []*winipcfg.RouteData{},
+	}
 }
 
 // StartDevice starts the wireguard networking interface used by rVPN
@@ -137,6 +142,11 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 	// set ip addresses on the wireguard network interface
 	log.Println("starting wireguard network interface configuration")
 
+	err := d.Device.Up()
+	if err != nil {
+		log.Fatalf("failed to bring up device: %v", err)
+	}
+
 	family := winipcfg.AddressFamily(windows.AF_INET) // TODO: investigate how we differentiate between AF_INET and AF_INET6 for ipv4 vs ipv6
 
 	serverIP, err := netip.ParsePrefix(wgConf.ServerIp + "/32")
@@ -191,10 +201,23 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 		Metric:      0,
 	}}
 
-	err = d.Adapter.LUID.SetRoutesForFamily(family, routes)
-	if err != nil {
-		log.Fatalf("failed to set routes on interface: %v", err)
+	// NOTE: LUID.FlushRoutes is broken, so we manually track previous routes and delete them
+	for _, prevRoute := range d.prevRoutes {
+		err = d.Adapter.LUID.DeleteRoute(prevRoute.Destination, prevRoute.NextHop)
+		if err != nil {
+			log.Fatalf("failed to delete route: %v", err)
+		}
 	}
+
+	for _, newRoute := range routes {
+		err = d.Adapter.LUID.AddRoute(newRoute.Destination, newRoute.NextHop, newRoute.Metric)
+		if err != nil {
+			log.Fatalf("failed to set routes on interface: %v", err)
+		}
+	}
+
+	d.prevRoutes = routes
+
 	err = d.Adapter.LUID.SetIPAddressesForFamily(family, interfaceIPs)
 	if err != nil {
 		log.Fatalf("failed to set ip address on interface: %v", err)
@@ -268,6 +291,24 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 			log.Fatalf("Unknown config error: %v", err)
 		}
 	}
+}
+
+// UpdateConf updates the configuration of a WireguardDaemon with the provided config
+func (d *WireguardDaemon) Disconnect() {
+	err := d.Device.Down()
+	if err != nil {
+		log.Fatalf("failed to shut down device")
+	}
+
+	// NOTE: LUID.FlushRoutes is broken, so we manually track previous routes and delete them
+	for _, prevRoute := range d.prevRoutes {
+		err = d.Adapter.LUID.DeleteRoute(prevRoute.Destination, prevRoute.NextHop)
+		if err != nil {
+			log.Fatalf("failed to delete route: %v", err)
+		}
+	}
+
+	d.prevRoutes = []*winipcfg.RouteData{}
 }
 
 // ShutdownDevice shuts down the wireguard device
