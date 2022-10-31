@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/rpc"
 	"os"
 
 	flag "github.com/spf13/pflag"
@@ -35,43 +34,25 @@ func main() {
 		case "connect":
 			if profile := flag.Arg(1); profile != "" {
 				EnsureDaemonStarted()
-
-				err := ConnectProfile(profile)
-				if err != nil {
-					fmt.Println("something went wrong while connecting to " + profile)
-					os.Exit(1)
-				}
+				ClientConnectProfile(profile)
 			} else {
 				fmt.Println("missing required profile, rvpn connect [profile]")
 			}
 		case "disconnect":
 			EnsureDaemonStarted()
-
-			err := DisconnectProfile()
-			if err != nil {
-				fmt.Println("something went wrong while disconnecting")
-				os.Exit(1)
-			}
+			ClientDisconnectProfile()
 		case "status":
 			EnsureDaemonStarted()
-
-			client, err := rpc.Dial("tcp", "127.0.0.1:52370")
-			if err != nil {
-				fmt.Println("failed to connect to rVPN daemon")
-				os.Exit(1)
-			}
-
-			var rVPNState RVPNStatus
-			err = client.Call("RVPNDaemon.Status", "", &rVPNState)
-			if err != nil {
-				fmt.Println("failed to get status from rVPN daemon", err)
-				os.Exit(1)
-			}
-
-			fmt.Println(rVPNState)
+			ClientStatus()
 		case "daemon":
 			// start the rVPN daemon which is different based on user operating system
-			StartRVPNDaemon()
+			debug := true
+			if debug {
+				daemon := NewRVPNDaemon()
+				daemon.Start()
+			} else {
+				StartRVPNDaemon()
+			}
 		default:
 			fmt.Println("command not found, run 'rvpn help' for help")
 		}

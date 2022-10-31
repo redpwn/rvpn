@@ -2,6 +2,8 @@
 
 package main
 
+// this code is largely sourced from: https://github.com/golang/sys/blob/master/windows/svc/example/service.go
+
 import (
 	"fmt"
 	"log"
@@ -187,6 +189,7 @@ func EnsureServiceStarted() error {
 	// the service exists at this point, we should start the service
 	err = rvpnServiceMgr.Start()
 	if err != nil {
+		// FIXME: this will return an error if there is already an instance started, catch this and silently pass
 		return err
 	}
 

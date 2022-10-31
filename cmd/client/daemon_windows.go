@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"net/rpc"
@@ -24,12 +23,18 @@ const (
 	StatusDisconnected
 )
 
+type ConnectRequest struct {
+	Profile     string
+	DeviceToken string
+}
+
 // RVPNDaemon represents a rVPN daemon instance
 type RVPNDaemon struct {
 	status RVPNStatus
 
-	// channels used for control
-	manualTerm chan int
+	// internal variables used for underlying control
+	wireguardDaemon *wg.WireguardDaemon
+	manualTerm      chan int
 }
 
 func NewRVPNDaemon() *RVPNDaemon {
@@ -47,30 +52,12 @@ func EnsureDaemonStarted() error {
 }
 
 func (r *RVPNDaemon) Status(args string, reply *RVPNStatus) error {
-	fmt.Println("requested status", r.status)
-	r.status = StatusDisconnected
-
 	*reply = r.status
 
 	return nil
 }
 
-func (r *RVPNDaemon) Connect() error {
-	return nil
-}
-
-func (r *RVPNDaemon) Start() {
-	log.Println("starting windows rVPN wireguard daemon...")
-
-	wireguardDaemon := wg.NewWireguardDaemon()
-
-	errs := make(chan error)
-	term := make(chan os.Signal, 1)
-
-	// start the wireguard interface device
-	wireguardDaemon.StartDevice(errs)
-
-	// TODO: accept WgConfig via rpc to configure device via wgctrl
+func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 	userConfig := wg.WgConfig{
 		PrivateKey: "--",
 		PublicKey:  "Xb5+rEyb4eozBWYruk5iA7shr8miaQMka937dagG20c=",
@@ -80,7 +67,32 @@ func (r *RVPNDaemon) Start() {
 		ServerPort: 21820,
 		DnsIp:      "1.1.1.1",
 	}
-	wireguardDaemon.UpdateConf(userConfig)
+	r.wireguardDaemon.UpdateConf(userConfig)
+
+	*reply = true
+
+	return nil
+}
+
+func (r *RVPNDaemon) Disconnect(args string, reply *bool) error {
+	r.wireguardDaemon.Disconnect()
+
+	*reply = true
+
+	return nil
+}
+
+func (r *RVPNDaemon) Start() {
+	log.Println("starting windows rVPN wireguard daemon...")
+
+	wireguardDaemon := wg.NewWireguardDaemon()
+	r.wireguardDaemon = wireguardDaemon
+
+	errs := make(chan error)
+	term := make(chan os.Signal, 1)
+
+	// start the wireguard interface device
+	wireguardDaemon.StartDevice(errs)
 
 	// start RPC server; TODO: investigate if this is a good pattern
 	rpc.Register(r)
