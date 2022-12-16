@@ -5,24 +5,22 @@ import (
 	"encoding/json"
 	"os"
 	"path"
+
+	"github.com/kirsle/configdir"
 )
 
 type RVpnState struct {
+	ControlPlaneAuth string `json:"controlplaneauth"` // token which is used to authenticate to the control plane
 	PrivateKey       string `json:"privatekey"`
 	PublicKey        string `json:"publickey"`
 	ActiveProfile    string `json:"activeprofile"` // TODO: remove because deprecated, this logic is moved to the rVPN daemon
-	ControlPlaneAuth string `json:"controlplaneauth"`
-	ControlPlaneId   string `json:"controlplaneid"` // this is issued by the control plane to faciliate connections
 }
 
 // getRVpnStatePath gets the rVPN state path from the system
 func getRVpnStatePath() (string, error) {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
+	configPaths := configdir.SystemConfig("rvpn")
 
-	return path.Join(configDir, "rvpn", "state.json"), nil
+	return path.Join(configPaths[0], "state.json"), nil
 }
 
 // GetRVpnState returns the parsed rVPN state from the system
@@ -39,7 +37,6 @@ func GetRVpnState() (RVpnState, error) {
 
 	var rVpnStateObj RVpnState
 	json.Unmarshal(rVpnStateData, &rVpnStateObj)
-
 	return rVpnStateObj, nil
 }
 
@@ -71,13 +68,8 @@ func SetRVpnState(rVpnStateData RVpnState) error {
 
 // InitRVPNState initializes the WireGuard client and must be run before any operations
 func InitRVPNState() error {
-	configDir, err := os.UserConfigDir()
-	if err != nil {
-		return err
-	}
-
 	// create rVPN configuration directory if not exists
-	rvpnConfigDir := path.Join(configDir, "rvpn")
+	rvpnConfigDir := configdir.SystemConfig("rvpn")[0]
 	if _, err := os.Stat(rvpnConfigDir); os.IsNotExist(err) {
 		err = os.MkdirAll(rvpnConfigDir, 0600)
 		if err != nil {

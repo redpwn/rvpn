@@ -20,9 +20,11 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
+	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/fasthttp/websocket v1.5.0 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
 	github.com/josharian/native v1.0.0 // indirect
+	github.com/kirsle/configdir v0.0.0-20170128060238-e45d2f54772f // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/mdlayher/genetlink v1.2.0 // indirect
 	github.com/mdlayher/netlink v1.6.0 // indirect
@@ -40,4 +42,5 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.zx2c4.com/wintun v0.0.0-20211104114900-415007cec224 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	nhooyr.io/websocket v1.8.7 // indirect
 )
