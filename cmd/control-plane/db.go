@@ -25,6 +25,16 @@ type RVPNTarget struct {
 	serverHeartbeat     string
 }
 
+// RVPNConnection represents a connect to the rVPN control plane
+type RVPNConnection struct {
+	id         string
+	target     string
+	deviceId   string
+	pubkey     string
+	clientIp   string
+	clientCidr string
+}
+
 func NewRVPNDatabase(postgresURL string) (*RVPNDatabase, error) {
 	db, err := sql.Open("postgres", postgresURL)
 	if err != nil {
@@ -134,20 +144,20 @@ func (d *RVPNDatabase) getDeviceId(ctx context.Context, principal, hardwareId st
 }
 
 // getTargetByName gets a target by the name of the target which is the primary key
-func (d *RVPNDatabase) getTargetByName(ctx context.Context, targetName string) (*RVPNTarget, error) {
+func (d *RVPNDatabase) getTargetByName(ctx context.Context, target string) (*RVPNTarget, error) {
 	row := d.db.QueryRowContext(ctx, `
 		SELECT 
 			name, owner, network_ip, network_cidr, dns_ip, server_pubkey, server_public_ip, server_public_vpn_port, server_internal_ip, server_internal_cidr, server_heartbeat
 		FROM targets
 		WHERE name=$1
-	`, targetName)
+	`, target)
 
 	retRVPNTarget := RVPNTarget{}
-	err := row.Scan(&retRVPNTarget.name, &retRVPNTarget.owner, &retRVPNTarget.networkIp, &retRVPNTarget.networkCidr, &retRVPNTarget.dnsIp, &retRVPNTarget.serverPubkey, &retRVPNTarget.serverPubkey,
+	err := row.Scan(&retRVPNTarget.name, &retRVPNTarget.owner, &retRVPNTarget.networkIp, &retRVPNTarget.networkCidr, &retRVPNTarget.dnsIp, &retRVPNTarget.serverPubkey,
 		&retRVPNTarget.serverPublicIp, &retRVPNTarget.serverPublicVpnPort, &retRVPNTarget.serverInternalIp, &retRVPNTarget.serverInternalCidr, &retRVPNTarget.serverHeartbeat)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			// no rows, return empty string
+			// no rows, return nil
 			return nil, nil
 		} else {
 			// actual database error
@@ -158,17 +168,86 @@ func (d *RVPNDatabase) getTargetByName(ctx context.Context, targetName string) (
 	return &retRVPNTarget, nil
 }
 
-func (d *RVPNDatabase) getConnection(ctx context.Context, targetName, deviceId string) (string, error) {
-	var connectionId string
-	err := d.db.QueryRowContext(ctx, "SELECT id FROM connections WHERE target=$1 AND pubkey=$2", targetName, deviceId).Scan(&connectionId)
+func (d *RVPNDatabase) getTargetClientIps(ctx context.Context, target string) (map[string]struct{}, error) {
+	rows, err := d.db.QueryContext(ctx, `
+		SELECT client_ip FROM connections WHERE target=$1
+	`, target)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", nil
-		} else {
-			return "", err
-		}
+		return nil, err
+	}
+	defer rows.Close()
 
+	var clientIp string
+	clientIpSet := make(map[string]struct{})
+	for rows.Next() {
+		err := rows.Scan(&clientIp)
+		if err != nil {
+			return nil, err
+		}
+		clientIpSet[clientIp] = struct{}{}
 	}
 
-	return connectionId, nil
+	return clientIpSet, nil
+}
+
+// getConnection gets a connection if it exists otherwise it returns the default struct
+func (d *RVPNDatabase) getConnection(ctx context.Context, targetName, deviceId string) (RVPNConnection, error) {
+	row := d.db.QueryRowContext(ctx, `
+		SELECT
+			id, target, device_id, pubkey, client_ip, client_cidr 
+		FROM connections
+		WHERE target=$1 AND pubkey=$2
+	`, targetName, deviceId)
+
+	retRVPNConnection := RVPNConnection{}
+	err := row.Scan(&retRVPNConnection.id, &retRVPNConnection.target, &retRVPNConnection.deviceId,
+		&retRVPNConnection.pubkey, &retRVPNConnection.clientIp, &retRVPNConnection.clientCidr)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			// no rows, return default RVPNConnection struct
+			return retRVPNConnection, nil
+		} else {
+			return retRVPNConnection, err
+		}
+	}
+
+	return retRVPNConnection, nil
+}
+
+// createConnection creates a a connection from rVPN client to rVPN server and returns whether it was created or already existed
+func (d *RVPNDatabase) createConnection(ctx context.Context, id, target, deviceId, pubkey, clientIp, clientCidr string) (bool, error) {
+	res, err := d.db.ExecContext(ctx, `
+		INSERT INTO connections (id, target, device_id, pubkey, client_ip, client_cidr) 
+		VALUES ($1, $2, $3, $4, $5, $6)
+		ON CONFLICT DO NOTHING
+	`, id, target, deviceId, pubkey, clientIp, clientCidr)
+	if err != nil {
+		return false, err
+	}
+
+	numRowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return numRowsAffected == 1, nil
+}
+
+// updateConnection updates a a connection from rVPN client to rVPN server and returns whether it was a row was affected
+func (d *RVPNDatabase) updateConnection(ctx context.Context, id, target, deviceId, pubkey, clientIp, clientCidr string) (bool, error) {
+	res, err := d.db.ExecContext(ctx, `
+		UPDATE connections
+		SET target=$2, device_id=$3, pubkey=$4, client_ip=$5, client_cidr=$6
+		WHERE id=$1
+	`, id, target, deviceId, pubkey, clientIp, clientCidr)
+	if err != nil {
+		return false, err
+	}
+
+	numRowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return numRowsAffected == 1, nil
 }

@@ -61,6 +61,20 @@ func ClientConnectProfile(profile string) {
 		os.Exit(1)
 	}
 
+	// ensure device is not already connected
+	var connectionStatus RVPNStatus
+	err = client.Call("RVPNDaemon.Status", "", &connectionStatus)
+	if err != nil {
+		fmt.Println("failed to connect rVPN target", err)
+		os.Exit(1)
+	}
+
+	if connectionStatus == StatusConnected {
+		// device is already connected, early exit
+		fmt.Println("device is already connected to a rVPN target, disconnect and try again")
+		os.Exit(1)
+	}
+
 	// ensure device is registered for target
 	controlPanelAuthToken := getControlPanelAuthToken()
 	if controlPanelAuthToken == "" {
@@ -121,9 +135,11 @@ func ClientConnectProfile(profile string) {
 	var connectionSuccess bool
 	err = client.Call("RVPNDaemon.Connect", connectionRequest, &connectionSuccess)
 	if err != nil {
-		fmt.Println("failed to connect rVPN target", err)
+		fmt.Printf("failed to connect rVPN target: %v", err)
 		os.Exit(1)
 	}
+
+	fmt.Printf("rVPN successfully connected to profile %s\n", profile)
 }
 
 // ClientDisconnectProfile instructs the rVPN daemon to disconnect from the current target via rpc
@@ -134,12 +150,28 @@ func ClientDisconnectProfile() {
 		os.Exit(1)
 	}
 
+	// ensure device is connected
+	var connectionStatus RVPNStatus
+	err = client.Call("RVPNDaemon.Status", "", &connectionStatus)
+	if err != nil {
+		fmt.Println("failed to connect rVPN target", err)
+		os.Exit(1)
+	}
+
+	if connectionStatus == StatusDisconnected {
+		// device is already connected, early exit
+		fmt.Println("device is not connected to a rVPN target, disconnect and try again")
+		os.Exit(1)
+	}
+
 	var disconnectSuccess bool
 	err = client.Call("RVPNDaemon.Disconnect", "", &disconnectSuccess)
 	if err != nil {
 		fmt.Println("failed to disconnect from rVPN connection", err)
 		os.Exit(1)
 	}
+
+	fmt.Println("successfully disconnected rVPN")
 }
 
 // ClientStatus gets the status of the rVPN daemon via rpc

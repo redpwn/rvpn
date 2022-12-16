@@ -117,8 +117,6 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 			})
 		}
 
-		log.Println(rVPNState.PublicKey)
-
 		if rVPNState.PublicKey == "" || rVPNState.PrivateKey == "" {
 			// pubkey or privkey is not set, error
 			log.Printf("pubkey or privkey is not set, check rVPN state")
@@ -138,7 +136,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		}
 
 		// validate pubkey from connectServerRequest matches local pubkey
-		if connectServerRequest.PublicKey != rVPNState.PublicKey {
+		if connectServerRequest.ClientPublicKey != rVPNState.PublicKey {
 			log.Printf("pubkey has fallen out of sync between control plane and device, try again")
 			conn.Reply(ctx, req.ID, common.ConnectServerResponse{
 				Success: false,
@@ -148,24 +146,16 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		// update rVPN wireguard config with instructions from rVPN control plane
 		userConfig := wg.WgConfig{
 			PrivateKey: rVPNState.PrivateKey,
-			PublicKey:  rVPNState.PublicKey,
+			PublicKey:  connectServerRequest.ServerPublicKey,
 			ClientIp:   connectServerRequest.ClientIp,
 			ClientCidr: connectServerRequest.ClientCidr,
 			ServerIp:   connectServerRequest.ServerIp,
 			ServerPort: connectServerRequest.ServerPort,
 			DnsIp:      connectServerRequest.DnsIp,
 		}
-
-		userConfig = wg.WgConfig{
-			PrivateKey: "--",
-			PublicKey:  "Xb5+rEyb4eozBWYruk5iA7shr8miaQMka937dagG20c=",
-			ClientIp:   "10.8.0.2",
-			ClientCidr: "/24",
-			ServerIp:   "144.172.71.160",
-			ServerPort: 21820,
-			DnsIp:      "1.1.1.1",
-		}
 		h.activeRVPNDaemon.wireguardDaemon.UpdateConf(userConfig)
+
+		h.activeRVPNDaemon.status = StatusConnected
 	default:
 		log.Printf("unknown jrpc request method: %s\n", req.Method)
 	}
@@ -215,6 +205,7 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 
 func (r *RVPNDaemon) Disconnect(args string, reply *bool) error {
 	r.wireguardDaemon.Disconnect()
+	r.status = StatusDisconnected
 
 	*reply = true
 	return nil
