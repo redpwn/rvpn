@@ -1,0 +1,84 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"net/netip"
+)
+
+// syncConnectionPubkey syncs so that the specified rVPN connection is updated in the database
+func syncConnectionPubkey(ctx context.Context, db *RVPNDatabase, rVPNConnection RVPNConnection, pubkey string) error {
+	rVPNConnection.pubkey = pubkey
+
+	_, err := db.updateConnection(ctx, rVPNConnection.id, rVPNConnection.target, rVPNConnection.deviceId,
+		rVPNConnection.pubkey, rVPNConnection.clientIp, rVPNConnection.clientCidr)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// targetServerAlive returns if the target server a device is connecting to is alive
+func targetServerAlive(rVPNTarget *RVPNTarget) bool {
+	if rVPNTarget == nil {
+		// target does not exist, thus it is not alive
+		return false
+	}
+
+	if rVPNTarget.serverPubkey == "" || rVPNTarget.serverPublicIp == "" || rVPNTarget.serverPublicVpnPort == "" {
+		// target server information does not exist, thus it is not alive
+		return false
+	}
+
+	// TODO: check server heartbeat
+
+	return true
+}
+
+// getNextClientIp returns the next client ip for a target
+func getNextClientIp(ctx context.Context, db *RVPNDatabase, target string) (string, string, error) {
+	rVPNTarget, err := db.getTargetByName(ctx, target)
+	if err != nil {
+		return "", "", err
+	}
+
+	if rVPNTarget == nil {
+		// target does not exist, return new error
+		return "", "", errors.New("requested target does not exist")
+	}
+
+	clientIpSet, err := db.getTargetClientIps(ctx, target)
+	if err != nil {
+		return "", "", err
+	}
+
+	// we have target information and client ip set, begin calculations for next client ip
+	serverIpPrefix, err := netip.ParsePrefix(rVPNTarget.networkIp + rVPNTarget.networkCidr)
+	if err != nil {
+		return "", "", err
+	}
+
+	var ipToAllocate string
+	currIp := serverIpPrefix.Addr().Next() // iterate past the first ip because it is reserved for the server
+
+	for serverIpPrefix.Contains(currIp) {
+		// iterate while currIp is still contained in the network
+		_, exists := clientIpSet[currIp.String()]
+		if !exists {
+			// we found the ip to allocate
+			ipToAllocate = currIp.String()
+			break
+		}
+
+		currIp = currIp.Next()
+	}
+
+	if ipToAllocate == "" {
+		// there are no more ips to allocate
+		return "", "", errors.New("no available ips to allocate for target")
+	}
+
+	// we found an ip to allocate, ensure this is not raced via unique db constraint
+	return ipToAllocate, rVPNTarget.networkCidr, nil
+}

@@ -17,12 +17,13 @@ type GetClientInformationResponse struct {
 
 // ConnectServerRequest holds the arguments for connect_server request
 type ConnectServerRequest struct {
-	PublicKey  string `json:"publickey"` // we send this to verify that the rVPN state key is correct / synced
-	ClientIp   string `json:"clientip"`
-	ClientCidr string `json:"clientcidr"`
-	ServerIp   string `json:"serverip"`
-	ServerPort int    `json:"serverport"`
-	DnsIp      string `json:"dnsip"`
+	ServerPublicKey string `json:"serverpublickey"` // this is the public key the client uses to connect
+	ClientPublicKey string `json:"clientpublickey"` // we send this to verify that the rVPN state key is correct / synced
+	ClientIp        string `json:"clientip"`
+	ClientCidr      string `json:"clientcidr"`
+	ServerIp        string `json:"serverip"`
+	ServerPort      int    `json:"serverport"`
+	DnsIp           string `json:"dnsip"`
 }
 
 // ConnectServerResponse holds the response for connect_server request
