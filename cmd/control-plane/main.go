@@ -88,8 +88,8 @@ func main() {
 	v1.Post("/target/:target/register_device", a.AuthUserMiddleware, a.registerDevice)
 
 	// websocket routes
-	v1.Get("/target/:target/serve", upgradeWsMiddlware, a.serveConnection)
-	v1.Get("/target/:target/connect", upgradeWsMiddlware, a.serveConnection)
+	v1.Get("/target/:target/serve", upgradeWsMiddlware, a.clientConnection)
+	v1.Get("/target/:target/connect", upgradeWsMiddlware, a.clientConnection)
 
 	// webapp login route
 	v1.Get("/auth/login", a.oauthLogin)

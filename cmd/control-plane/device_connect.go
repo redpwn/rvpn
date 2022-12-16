@@ -20,7 +20,7 @@ var clients = make(map[string]rVpnServer)
 */
 
 // WebSocket entry point for JSON RPC between control plane and rVPN client devices
-func (a *app) serveConnection(c *fiber.Ctx) error {
+func (a *app) clientConnection(c *fiber.Ctx) error {
 	target := c.Params("target")
 	if target == "" {
 		return c.Status(400).JSON(ErrorResponse("target must not be empty"))
@@ -60,20 +60,44 @@ func (a *app) serveConnection(c *fiber.Ctx) error {
 		// we are now authentciated, create jrpc connection on top of websocket stream
 		jrpcConn := jsonrpc2.NewConn(c.Context(), jrpc.NewObjectStream(wc), nil)
 
+		// request client information (pubkey) via jrpc
+		var clientInformationResponse common.GetClientInformationResponse
+		err = jrpcConn.Call(ctx, common.GetClientInformationMethod, common.GetClientInformationRequest{}, &clientInformationResponse)
+		if err != nil {
+			a.log.Error("failed to call getclientinformation via jrpc", zap.Error(err))
+		}
+
 		// we must ensure there is a connection for the device
 		deviceConnectionExists, err := connectionExists(ctx, a.db, target, deviceId)
 		if err != nil {
 			a.log.Error("failed to check if connection exists", zap.Error(err))
 		}
 
-		if !deviceConnectionExists {
+		if deviceConnectionExists {
+			// device connection already exists, verify that pubkey is what we expect for device
+			// TODO: complete this check
+			a.log.Info("device connection exists")
+		} else {
 			// device connection does not exist yet, we must jrpc client and ask for information
-			var clientInformationResponse common.GetClientInformationResponse
-			jrpcConn.Call(ctx, "get_client_information", common.GetClientInformationRequest{}, &clientInformationResponse)
+			// TODO: complete this check
+			a.log.Info("device connection does not exist")
 		}
 
-		// at this point the device connection exists, jrpc client to connect to rVPN server
-		jrpcConn.Call(ctx, "connect_server", nil, nil)
+		// the device connection exists, jrpc client to connect to rVPN server
+		connectServerRequest := common.ConnectServerRequest{
+			PublicKey:  clientInformationResponse.PublicKey,
+			ClientIp:   "10.8.0.2",
+			ClientCidr: "/24",
+			ServerIp:   "144.172.71.160",
+			ServerPort: 21820,
+			DnsIp:      "1.1.1.1",
+		}
+
+		var connectServerResponse common.ConnectServerResponse
+		err = jrpcConn.Call(ctx, common.ConnectServerMethod, connectServerRequest, &connectServerResponse)
+		if err != nil {
+			a.log.Error("failed to call connectserver via jrpc", zap.Error(err))
+		}
 	})
 
 	return handler(c)
@@ -103,6 +127,8 @@ func createConnection(ctx context.Context, db *RVPNDatabase, targetName, deviceI
 	if connectionId != "" {
 		return nil
 	}
+
+	// create new connection and save it to the database
 
 	return nil
 }

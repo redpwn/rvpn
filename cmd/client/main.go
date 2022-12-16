@@ -8,6 +8,11 @@ import (
 	flag "github.com/spf13/pflag"
 )
 
+const (
+	RVPN_CONTROL_PLANE    = "http://127.0.0.1:8080"
+	RVPN_CONTROL_PLANE_WS = "ws://127.0.0.1:8080"
+)
+
 func main() {
 	flag.Parse()
 
@@ -27,7 +32,7 @@ func main() {
 				fmt.Println("missing required token, rvpn login [token]")
 			} else {
 				// token was provided
-				fmt.Println("token provided")
+				ControlPanelAuthLogin(token)
 			}
 		case "list":
 			fmt.Println("list")

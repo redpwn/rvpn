@@ -3,6 +3,8 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"log"
 	"net"
 	"net/rpc"
@@ -10,11 +12,15 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/redpwn/rvpn/cmd/client/jrpc"
 	"github.com/redpwn/rvpn/cmd/client/wg"
+	"github.com/redpwn/rvpn/common"
+	"github.com/sourcegraph/jsonrpc2"
+	"nhooyr.io/websocket"
 )
 
 // this is the windows daemon which runs the rVPN daemon as well as rVPN wireguard daemon
-// the daemon manages the long lived connection to the control plane and executing commands
+// the rVPN daemon manages the long lived connection to the control plane and executing commands
 
 type RVPNStatus int
 
@@ -30,7 +36,9 @@ type ConnectRequest struct {
 
 // RVPNDaemon represents a rVPN daemon instance
 type RVPNDaemon struct {
-	status RVPNStatus
+	status               RVPNStatus
+	activeControlPlaneWs *websocket.Conn
+	activeProfile        string
 
 	// internal variables used for underlying control
 	wireguardDaemon *wg.WireguardDaemon
@@ -51,26 +59,157 @@ func EnsureDaemonStarted() error {
 	return nil
 }
 
+// jsonRPC handler for daemon
+type jrpcHandler struct {
+	activeRVPNDaemon *RVPNDaemon
+}
+
+func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	switch req.Method {
+	case common.GetClientInformationMethod:
+		// return client information to rVPN control plane
+
+		// get public key from rVPN state
+		rVPNState, err := GetRVpnState()
+		if err != nil {
+			log.Printf("failed to get rVPN state: %v", err)
+			conn.Reply(ctx, req.ID, common.GetClientInformationResponse{
+				Success: false,
+			})
+		}
+
+		if rVPNState.PublicKey == "" {
+			// public key is not set, regenerate wg keys
+			privateKey, publicKey, err := wg.GenerateKeyPair()
+			if err != nil {
+				log.Printf("failed to generate new wireguard keypair: %v", err)
+				conn.Reply(ctx, req.ID, common.GetClientInformationResponse{
+					Success: false,
+				})
+			}
+
+			rVPNState.PrivateKey = privateKey
+			rVPNState.PublicKey = publicKey
+
+			err = SetRVpnState(rVPNState)
+			if err != nil {
+				log.Printf("failed to save rVPN state: %v", err)
+				conn.Reply(ctx, req.ID, common.GetClientInformationResponse{
+					Success: false,
+				})
+			}
+		}
+
+		// we must have a saved public key in rVPN state, return information to control plane
+		clientInformationResponse := common.GetClientInformationResponse{
+			PublicKey: rVPNState.PublicKey,
+		}
+		conn.Reply(ctx, req.ID, clientInformationResponse)
+	case common.ConnectServerMethod:
+		// connect to server with information provided from rVPN control plane
+
+		// get pubkey and privkey from rVPN state
+		rVPNState, err := GetRVpnState()
+		if err != nil {
+			log.Printf("failed to get rVPN state: %v", err)
+			conn.Reply(ctx, req.ID, common.ConnectServerResponse{
+				Success: false,
+			})
+		}
+
+		log.Println(rVPNState.PublicKey)
+
+		if rVPNState.PublicKey == "" || rVPNState.PrivateKey == "" {
+			// pubkey or privkey is not set, error
+			log.Printf("pubkey or privkey is not set, check rVPN state")
+			conn.Reply(ctx, req.ID, common.ConnectServerResponse{
+				Success: false,
+			})
+		}
+
+		// parse information from jrpc request
+		var connectServerRequest common.ConnectServerRequest
+		err = json.Unmarshal(*req.Params, &connectServerRequest)
+		if err != nil {
+			log.Printf("failed to unmarshal connectserver request params: %v", err)
+			conn.Reply(ctx, req.ID, common.ConnectServerResponse{
+				Success: false,
+			})
+		}
+
+		// validate pubkey from connectServerRequest matches local pubkey
+		if connectServerRequest.PublicKey != rVPNState.PublicKey {
+			log.Printf("pubkey has fallen out of sync between control plane and device, try again")
+			conn.Reply(ctx, req.ID, common.ConnectServerResponse{
+				Success: false,
+			})
+		}
+
+		// update rVPN wireguard config with instructions from rVPN control plane
+		userConfig := wg.WgConfig{
+			PrivateKey: rVPNState.PrivateKey,
+			PublicKey:  rVPNState.PublicKey,
+			ClientIp:   connectServerRequest.ClientIp,
+			ClientCidr: connectServerRequest.ClientCidr,
+			ServerIp:   connectServerRequest.ServerIp,
+			ServerPort: connectServerRequest.ServerPort,
+			DnsIp:      connectServerRequest.DnsIp,
+		}
+
+		userConfig = wg.WgConfig{
+			PrivateKey: "--",
+			PublicKey:  "Xb5+rEyb4eozBWYruk5iA7shr8miaQMka937dagG20c=",
+			ClientIp:   "10.8.0.2",
+			ClientCidr: "/24",
+			ServerIp:   "144.172.71.160",
+			ServerPort: 21820,
+			DnsIp:      "1.1.1.1",
+		}
+		h.activeRVPNDaemon.wireguardDaemon.UpdateConf(userConfig)
+	default:
+		log.Printf("unknown jrpc request method: %s\n", req.Method)
+	}
+}
+
+/* rVPN daemon rpc handlers */
+
+// Status returns the current status of the rVPN daemon
 func (r *RVPNDaemon) Status(args string, reply *RVPNStatus) error {
 	*reply = r.status
 
 	return nil
 }
 
+// Connect is responsible for creating WebSocket connection to control-plane
 func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
-	userConfig := wg.WgConfig{
-		PrivateKey: "--",
-		PublicKey:  "Xb5+rEyb4eozBWYruk5iA7shr8miaQMka937dagG20c=",
-		ClientIp:   "10.8.0.2",
-		ClientCidr: "/24",
-		ServerIp:   "144.172.71.160",
-		ServerPort: 21820,
-		DnsIp:      "1.1.1.1",
+	// create long-lived WebSocket connection acting as jrpc channel between client and control plane
+	ctx := context.Background()
+
+	websocketURL := RVPN_CONTROL_PLANE_WS + "/api/v1/target/" + args.Profile + "/connect"
+	conn, _, err := websocket.Dial(ctx, websocketURL, nil)
+	if err != nil {
+		log.Printf("failed to connect to rVPN control plane web socket: %v", err)
+		*reply = false
+		return nil
 	}
-	r.wireguardDaemon.UpdateConf(userConfig)
+
+	r.activeControlPlaneWs = conn
+	r.activeProfile = args.Profile
+
+	// send device token to authenticate with control plane
+	err = conn.Write(ctx, websocket.MessageText, []byte(args.DeviceToken))
+	if err != nil {
+		log.Printf("failed to write device token to control plane web socket: %v", err)
+		*reply = false
+		return nil
+	}
+
+	// now we are authenticated, create jrpc connection on top of websocket stream
+	jsonrpc2.NewConn(ctx, jrpc.NewObjectStream(conn), jrpcHandler{
+		activeRVPNDaemon: r,
+	})
 
 	*reply = true
-
 	return nil
 }
 
@@ -78,7 +217,6 @@ func (r *RVPNDaemon) Disconnect(args string, reply *bool) error {
 	r.wireguardDaemon.Disconnect()
 
 	*reply = true
-
 	return nil
 }
 
