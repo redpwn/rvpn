@@ -25,6 +25,7 @@ func (a *app) registerDevice(c *fiber.Ctx) error {
 		return c.Status(500).JSON(ErrorResponse("something went wrong"))
 	}
 
+	// TODO: convert this to use a native SQL query (select where) instead of iterating through results
 	userAuthorized := false
 	for _, authorizedTarget := range authorizedTargets {
 		if target == authorizedTarget {
@@ -45,7 +46,7 @@ func (a *app) registerDevice(c *fiber.Ctx) error {
 	}
 
 	newUUID := uuid.New().String()
-	createdDevice, err := a.db.createDevice(c.Context(), authUser.(string), *registerDeviceInfo.HardwareId, newUUID)
+	createdDevice, err := a.db.createDevice(c.Context(), authUser.(string), target, *registerDeviceInfo.HardwareId, newUUID)
 	if err != nil {
 		a.log.Error("something went wrong with create device database query", zap.Error(err))
 		return c.Status(500).JSON(ErrorResponse("something went wrong"))

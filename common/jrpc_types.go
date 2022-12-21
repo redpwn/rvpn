@@ -4,6 +4,7 @@ package common
 const (
 	GetClientInformationMethod = "get_client_information"
 	ConnectServerMethod        = "connect_server"
+	NotifyFailureMethod        = "notify_failure"
 )
 
 // GetClientInformationRequest holds the arguments for get_client_information request

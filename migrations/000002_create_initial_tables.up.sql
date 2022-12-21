@@ -38,8 +38,9 @@ CREATE TABLE connections (
 
 CREATE TABLE devices (
     principal VARCHAR,
+    target VARCHAR,
     hardware_id VARCHAR,
     device_id VARCHAR,
-    PRIMARY KEY (principal, hardware_id),
+    PRIMARY KEY (principal, target, hardware_id),
     UNIQUE (device_id)
 )
