@@ -54,6 +54,8 @@ func (a *app) clientConnection(c *fiber.Ctx) error {
 				a.log.Error("failed to validate device token")
 				return
 			}
+
+			// TODO(authentication): validate that this deviceId is for the target
 		} else {
 			a.log.Error("received non text message after initializing connection")
 			return

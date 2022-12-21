@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	RVPN_CONTROL_PLANE    = "http://127.0.0.1:8080"
-	RVPN_CONTROL_PLANE_WS = "ws://127.0.0.1:8080"
+	RVPN_CONTROL_PLANE    = "http://rvpn.jimmyli.us"
+	RVPN_CONTROL_PLANE_WS = "ws://rvpn.jimmyli.us"
 )
 
 func main() {

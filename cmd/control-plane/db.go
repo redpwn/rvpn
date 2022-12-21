@@ -109,9 +109,9 @@ func (d *RVPNDatabase) getTargetsByOwner(ctx context.Context, owner string) ([]s
 }
 
 // createDevice creates a device and returns whether or not the device was created or already existed
-func (d *RVPNDatabase) createDevice(ctx context.Context, principal, hardwareId, deviceId string) (bool, error) {
-	res, err := d.db.ExecContext(ctx, "INSERT INTO devices (principal, hardware_id, device_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-		principal, hardwareId, deviceId)
+func (d *RVPNDatabase) createDevice(ctx context.Context, principal, target, hardwareId, deviceId string) (bool, error) {
+	res, err := d.db.ExecContext(ctx, "INSERT INTO devices (principal, target, hardware_id, device_id) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+		principal, target, hardwareId, deviceId)
 	if err != nil {
 		return false, err
 	}

@@ -139,7 +139,6 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 
 // UpdateConf updates the configuration of a WireguardDaemon with the provided config
 func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
-	// set ip addresses on the wireguard network interface
 	log.Println("starting wireguard network interface configuration")
 
 	err := d.Device.Up()
@@ -148,7 +147,6 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 	}
 
 	family := winipcfg.AddressFamily(windows.AF_INET) // TODO: investigate how we differentiate between AF_INET and AF_INET6 for ipv4 vs ipv6
-
 	serverIP, err := netip.ParsePrefix(wgConf.ServerIp + "/32")
 	if err != nil {
 		log.Fatalf("failed to parse server ip: %v", err)
@@ -192,9 +190,9 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 	}
 
 	// set routes to be the de-duped peer allowed IPs # TODO: right now just hardcode to all traffic
-	interfaceIP := netip.MustParsePrefix("10.8.0.2/24")
+	interfaceIP := netip.MustParsePrefix(wgConf.ClientIp + wgConf.ClientCidr)
 	interfaceIPs := []netip.Prefix{interfaceIP}
-	peerAllowedIP := netip.MustParsePrefix("0.0.0.0/0")
+	peerAllowedIP := netip.MustParsePrefix("0.0.0.0/0") // TODO: this needs to actually be the de-duped peer allowed IPs
 	routes := []*winipcfg.RouteData{{
 		Destination: peerAllowedIP.Masked(),
 		NextHop:     netip.IPv4Unspecified(),
