@@ -178,7 +178,7 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 		// default interface has not yet been defined
 		d.DefaultAdapter = currDefaultAdapter
 
-		// set route on default adapter as it has not yet been set
+		// set target server route on default adapter as it has not yet been set
 		d.DefaultAdapter.LUID.AddRoute(d.ServerIP, gatewayIP, 0)
 		d.DefaultGateway = gatewayIP
 	} else {
@@ -189,7 +189,7 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 		}
 	}
 
-	// set routes to be the de-duped peer allowed IPs # TODO: right now just hardcode to all traffic
+	// set routes to be the de-duped peer allowed IPs # TODO: right now we just hardcode to all traffic
 	interfaceIP := netip.MustParsePrefix(wgConf.ClientIp + wgConf.ClientCidr)
 	interfaceIPs := []netip.Prefix{interfaceIP}
 	peerAllowedIP := netip.MustParsePrefix("0.0.0.0/0") // TODO: this needs to actually be the de-duped peer allowed IPs
@@ -207,6 +207,7 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 		}
 	}
 
+	// add peer routes to the rvpn wireguard interface
 	for _, newRoute := range routes {
 		err = d.Adapter.LUID.AddRoute(newRoute.Destination, newRoute.NextHop, newRoute.Metric)
 		if err != nil {
@@ -216,6 +217,7 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 
 	d.prevRoutes = routes
 
+	// set ip address of rvpn wireguard interface
 	err = d.Adapter.LUID.SetIPAddressesForFamily(family, interfaceIPs)
 	if err != nil {
 		log.Fatalf("failed to set ip address on interface: %v", err)
@@ -291,7 +293,7 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 	}
 }
 
-// UpdateConf updates the configuration of a WireguardDaemon with the provided config
+// Disconnect instructs the wireguard daemon to disconnect from current connection
 func (d *WireguardDaemon) Disconnect() {
 	err := d.Device.Down()
 	if err != nil {
