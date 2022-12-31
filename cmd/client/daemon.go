@@ -37,6 +37,7 @@ type RVPNDaemon struct {
 	status               RVPNStatus
 	activeControlPlaneWs *websocket.Conn
 	activeProfile        string
+	jrpcConn             *jsonrpc2.Conn
 
 	// internal variables used for underlying control
 	wireguardDaemon *wg.WireguardDaemon
@@ -149,6 +150,8 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		// TODO: wait then run a check to ensure connection is healthy, otherwise abort
 
 		h.activeRVPNDaemon.status = StatusConnected
+
+		// TODO: launch goroutine to send heartbeat to keep WS alive
 	default:
 		log.Printf("unknown jrpc request method: %s\n", req.Method)
 	}
@@ -188,9 +191,11 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 	}
 
 	// now we are authenticated, create jrpc connection on top of websocket stream
-	jsonrpc2.NewConn(ctx, jrpc.NewObjectStream(conn), jrpcHandler{
+	jrpcConn := jsonrpc2.NewConn(ctx, jrpc.NewObjectStream(conn), jrpcHandler{
 		activeRVPNDaemon: r,
 	})
+
+	r.jrpcConn = jrpcConn
 
 	*reply = true
 	return nil
@@ -198,6 +203,7 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 
 func (r *RVPNDaemon) Disconnect(args string, reply *bool) error {
 	r.wireguardDaemon.Disconnect()
+	r.jrpcConn.Close()
 	r.status = StatusDisconnected
 
 	*reply = true
@@ -205,7 +211,7 @@ func (r *RVPNDaemon) Disconnect(args string, reply *bool) error {
 }
 
 func (r *RVPNDaemon) Start() {
-	log.Println("starting windows rVPN wireguard daemon...")
+	log.Println("starting rVPN wireguard daemon...")
 
 	wireguardDaemon := wg.NewWireguardDaemon()
 	r.wireguardDaemon = wireguardDaemon
@@ -241,7 +247,7 @@ func (r *RVPNDaemon) Start() {
 
 	log.Println("started rVPN daemon RPC server")
 
-	log.Println("windows rVPN wireguard daemon is running")
+	log.Println("rVPN wireguard daemon is running")
 
 	// wait for program to terminate via signal, interrupt, or error
 	signal.Notify(term, syscall.SIGTERM)
@@ -256,11 +262,11 @@ func (r *RVPNDaemon) Start() {
 
 	// once we receive termination signal, shutdown wg device
 	wireguardDaemon.ShutdownDevice()
-	log.Println("windows rVPN wireguard daemon stopped")
+	log.Println("rVPN wireguard daemon stopped")
 }
 
 // Stop stops the rVPN daemon process
 func (r *RVPNDaemon) Stop() {
-	log.Println("stopping windows rVPN wireguard daemon...")
+	log.Println("stopping rVPN wireguard daemon...")
 	r.manualTerm <- 1
 }
