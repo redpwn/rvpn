@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/rpc"
 	"os"
@@ -69,7 +69,7 @@ func ClientConnectProfile(profile string) {
 		os.Exit(1)
 	}
 
-	if connectionStatus == StatusConnected {
+	if connectionStatus != StatusDisconnected {
 		// device is already connected, early exit
 		fmt.Println("device is already connected to a rVPN target, disconnect and try again")
 		os.Exit(1)
@@ -113,7 +113,7 @@ func ClientConnectProfile(profile string) {
 		os.Exit(1)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("failed to read device registration response", err)
 		os.Exit(1)
@@ -189,5 +189,13 @@ func ClientStatus() {
 		os.Exit(1)
 	}
 
-	fmt.Println(rVPNState)
+	if rVPNState == StatusConnected {
+		fmt.Println("rVPN is currently connected to a profile")
+	} else if rVPNState == StatusDisconnected {
+		fmt.Println("rVPN is not currently connected to a profile")
+	} else if rVPNState == StatusServing {
+		fmt.Println("rVPN is currently serving as a target VPN server")
+	} else {
+		fmt.Println("something went wrong, rVPN status is unrecognized")
+	}
 }

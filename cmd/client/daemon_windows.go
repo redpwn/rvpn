@@ -8,3 +8,11 @@ func EnsureDaemonStarted() error {
 	// TODO: complete this function
 	return nil
 }
+
+// Serve instructs the rVPN daemon to act as a target VPN server
+func (r *RVPNDaemon) Serve(args ServeRequest, reply *bool) error {
+	// NOTE: serving not supported on Windows, this is just a stub
+	*reply = false
+
+	return nil
+}

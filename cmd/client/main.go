@@ -43,6 +43,13 @@ func main() {
 			} else {
 				fmt.Println("missing required profile, rvpn connect [profile]")
 			}
+		case "serve":
+			if profile := flag.Arg(1); profile != "" {
+				EnsureDaemonStarted()
+				ClientServeProfile(profile)
+			} else {
+				fmt.Println("missing required profile, rvpn serve [profile]")
+			}
 		case "disconnect":
 			EnsureDaemonStarted()
 			ClientDisconnectProfile()
