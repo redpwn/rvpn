@@ -162,13 +162,13 @@ func (a *app) clientConnection(c *fiber.Ctx) error {
 
 // createConnection creates a rVPN control plane connection
 func createConnection(ctx context.Context, db *RVPNDatabase, rVPNConnection RVPNConnection) error {
-	rVPNConnection, err := db.getConnection(ctx, rVPNConnection.target, rVPNConnection.deviceId)
+	existingRVPNConnection, err := db.getConnection(ctx, rVPNConnection.target, rVPNConnection.deviceId)
 	if err != nil {
 		return err
 	}
 
 	// if connection has already been created then we can early exit
-	if rVPNConnection.id != "" {
+	if existingRVPNConnection.id != "" {
 		return nil
 	}
 
