@@ -25,9 +25,15 @@ type RVPNStatus int
 const (
 	StatusConnected RVPNStatus = iota
 	StatusDisconnected
+	StatusServing
 )
 
 type ConnectRequest struct {
+	Profile     string
+	DeviceToken string
+}
+
+type ServeRequest struct {
 	Profile     string
 	DeviceToken string
 }

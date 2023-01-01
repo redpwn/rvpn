@@ -10,6 +10,7 @@ Available commands are:
 	ls         - list available rVPN profiles
 	status     - show current status of rVPN
 	connect    - connect to a rVPN profile
+	serve      - serve as a rVPN target server
 	disconnect - disconnect current rVPN profile
 	daemon     - start the rVPN daemon (windows only)
 
