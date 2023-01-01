@@ -196,7 +196,7 @@ func (d *RVPNDatabase) getConnection(ctx context.Context, targetName, deviceId s
 		SELECT
 			id, target, device_id, pubkey, client_ip, client_cidr 
 		FROM connections
-		WHERE target=$1 AND pubkey=$2
+		WHERE target=$1 AND device_id=$2
 	`, targetName, deviceId)
 
 	retRVPNConnection := RVPNConnection{}
