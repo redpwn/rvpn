@@ -23,6 +23,7 @@ type config struct {
 type app struct {
 	log         *zap.Logger
 	db          *RVPNDatabase
+	connMan     *ConnectionManager
 	jwtSecret   []byte
 	httpClient  *http.Client
 	baseURL     string
@@ -66,6 +67,7 @@ func main() {
 	a := &app{
 		log:         log,
 		db:          db,
+		connMan:     NewConnectionManager(),
 		jwtSecret:   []byte(cfg.JwtSecret),
 		httpClient:  &client,
 		baseURL:     cfg.BaseURL,
@@ -88,8 +90,8 @@ func main() {
 	v1.Post("/target/:target/register_device", a.AuthUserMiddleware, a.registerDevice)
 
 	// websocket routes
-	v1.Get("/target/:target/serve", upgradeWsMiddlware, a.clientConnection)
-	v1.Get("/target/:target/connect", upgradeWsMiddlware, a.clientConnection)
+	v1.Get("/target/:target/serve", upgradeWsMiddlware, a.clientServe)
+	v1.Get("/target/:target/connect", upgradeWsMiddlware, a.clientConnect)
 
 	// webapp login route
 	v1.Get("/auth/login", a.oauthLogin)

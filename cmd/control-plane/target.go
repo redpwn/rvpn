@@ -17,7 +17,7 @@ func (a *app) createTarget(c *fiber.Ctx) error {
 		return c.Status(400).JSON(ErrorResponse("target must not be empty"))
 	}
 
-	createdTarget, err := a.db.createTarget(c.Context(), target, authUser.(string), "10.8.0.0", "/23", "1.1.1.1", "", "", "", "10.8.0.1", "/23", "")
+	createdTarget, err := a.db.createTarget(c.Context(), target, authUser.(string), "10.8.0.1", "/23", "1.1.1.1", "", "", "", "10.8.0.1", "/23", "")
 	if err != nil {
 		a.log.Error("something went wrong with database query", zap.Error(err))
 		return c.Status(500).JSON(ErrorResponse("something went wrong"))
