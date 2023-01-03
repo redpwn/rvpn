@@ -20,6 +20,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
+	github.com/coreos/go-iptables v0.6.0 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/fasthttp/websocket v1.5.0 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect

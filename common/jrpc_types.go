@@ -3,9 +3,18 @@ package common
 // add strict types for jrpc method names
 const (
 	GetClientInformationMethod = "get_client_information"
+	GetServeInformationMethod  = "get_serve_information"
 	ConnectServerMethod        = "connect_server"
-	NotifyFailureMethod        = "notify_failure"
+	ServeVPNMethod             = "serve_vpn"
+	AppendVPNPeersMethod       = "append_vpn_peers"
+	DeleteVPNPeersMethod       = "delete_vpn_peers"
 )
+
+type WireGuardPeer struct {
+	PublicKey   string `json:"publickey"`
+	AllowedIP   string `json:"allowedip"`
+	AllowedCidr string `json:"allowedcidr"`
+}
 
 // GetClientInformationRequest holds the arguments for get_client_information request
 type GetClientInformationRequest struct{}
@@ -14,6 +23,16 @@ type GetClientInformationRequest struct{}
 type GetClientInformationResponse struct {
 	Success   bool   `json:"success"`
 	PublicKey string `json:"publickey"`
+}
+
+// GetServeInformationRequest holds the arguments for get_serve_information request
+type GetServeInformationRequest struct{}
+
+// GetServeInformationResponse holds the response for get_serve_information request
+type GetServeInformationResponse struct {
+	Success       bool   `json:"success"`
+	PublicKey     string `json:"publickey"`
+	PublicVpnPort string `json:"publicvpnport"`
 }
 
 // ConnectServerRequest holds the arguments for connect_server request
@@ -29,5 +48,39 @@ type ConnectServerRequest struct {
 
 // ConnectServerResponse holds the response for connect_server request
 type ConnectServerResponse struct {
+	Success bool `json:"success"`
+}
+
+// ServeVPNRequest holds the arguments for the serve_vpn request
+type ServeVPNRequest struct {
+	ServerPublicKey     string          `json:"serverpublickey"` // we send this to verify that the rVPN state key is correct / synced
+	ServerInternalIp    string          `json:"serverinternalip"`
+	ServerInternalCidr  string          `json:"serverinternalcidr"`
+	ServerPublicVPNPort int             `json:"serverpublicvpnport"`
+	Peers               []WireGuardPeer `json:"peers"`
+}
+
+// ServeVPNResponse holds the response for the serve_vpn request
+type ServeVPNResponse struct {
+	Success bool `json:"success"`
+}
+
+// AppendVPNPeersRequest holds the arguments for the append_vpn_peers request to modify peers
+type AppendVPNPeersRequest struct {
+	Peers []WireGuardPeer `json:"peers"`
+}
+
+// AppendVPNPeersResponse holds the response for the append_vpn_peers request to modify peers
+type AppendVPNPeersResponse struct {
+	Success bool `json:"success"`
+}
+
+// DeleteVPNPeersRequest holds the arguments for the delete_vpn_peers request to modify peers
+type DeleteVPNPeersRequest struct {
+	Peers []WireGuardPeer `json:"peers"`
+}
+
+// DeleteVPNPeersResponse holds the response for the delete_vpn_peers request to modify peers
+type DeleteVPNPeersResponse struct {
 	Success bool `json:"success"`
 }

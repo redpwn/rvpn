@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/conn"
@@ -29,6 +30,7 @@ type WireguardDaemon struct {
 
 	// internal variables used for managing the daemon
 	stashedRoutes []netlink.Route // routes stashed outside of rvpn
+	vpnServerMode bool
 }
 
 // NewWireguardDaemon returns a new WireguardDaemon NOTE: this is uninitialized
@@ -100,11 +102,11 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 	d.InterfaceName = interfaceName
 }
 
-// UpdateConf updates the configuration of a WireguardDaemon with the provided config
-func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
-	log.Println("starting wireguard network interface configuration")
+// UpdateClientConf updates the configuration of a WireguardDaemon with the provided config for rVPN clients
+func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig) {
+	log.Println("starting wireguard network interface configuration for clients")
 
-	interfaceLink, err := netlink.LinkByName("rvpn0")
+	interfaceLink, err := netlink.LinkByName(d.InterfaceName)
 	if err != nil {
 		log.Fatalf("failed to get rvpn wireguard interface link: %v", err)
 	}
@@ -234,12 +236,12 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 	// TODO: END DEBUG
 
 	// parse keys into wgtypes
-	pri, err := wgtypes.ParseKey(wgConf.PrivateKey)
+	pri, err := wgtypes.ParseKey(wgConf.ClientPrivateKey)
 	if err != nil {
 		log.Fatalf("failed to parse private key: %v", err)
 	}
 
-	pub, err := wgtypes.ParseKey(wgConf.PublicKey)
+	pub, err := wgtypes.ParseKey(wgConf.ServerPublicKey)
 	if err != nil {
 		log.Fatalf("failed to parse public key: %v", err)
 	}
@@ -277,13 +279,214 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 			log.Fatalf("Unknown config error: %v", err)
 		}
 	}
+
+	d.vpnServerMode = false
 }
+
+// UpdateServeConf updates the configuration of a WireguardDaemon with the provided config for rVPN VPN serving clients
+func (d *WireguardDaemon) UpdateServeConf(wgConf ServeWgConfig) {
+	log.Println("starting wireguard network interface configuration for serving")
+
+	interfaceLink, err := netlink.LinkByName("rvpn0")
+	if err != nil {
+		log.Fatalf("failed to get rvpn wireguard interface link: %v", err)
+	}
+
+	// bring the netlink interface up
+	if err := netlink.LinkSetUp(interfaceLink); err != nil {
+		log.Fatalf("failed to bring the rvpn wireguard netlink interface link up: %v", err)
+	}
+
+	err = d.Device.Up()
+	if err != nil {
+		log.Fatalf("failed to bring up device: %v", err)
+	}
+
+	// find default adapater
+	currDefaultIFace, _, err := findDefaultInterface()
+	if err != nil {
+		log.Fatalf("failed to find default interface: %v", err)
+	}
+
+	if d.DefaultIFaceLink == nil {
+		log.Println("updating default interface...")
+		// default interface has not yet been defined
+		d.DefaultIFaceLink = currDefaultIFace
+	} else {
+		// default interface has already been set
+		if d.DefaultIFaceLink.Attrs().Name != currDefaultIFace.Attrs().Name {
+			// default interface has changed, remove route and update WireguardDaemon
+			fmt.Println("default interface has changed; behavior TODO")
+		}
+	}
+
+	// set ip addresses on the wireguard network interface
+	interfaceAddressPrefix := wgConf.InternalIp + wgConf.InternalCidr
+	assignInterfaceAddr(d.InterfaceName, interfaceAddressPrefix)
+
+	// create wgctrl client to control wireguard device
+	client, err := wgctrl.New()
+	if err != nil {
+		log.Fatalf("failed to open client: %v", err)
+	}
+	defer client.Close()
+
+	// TODO: DEBUG
+	devices, err := client.Devices()
+	if err != nil {
+		log.Fatalf("failed to get devices: %v", err)
+	}
+
+	for _, d := range devices {
+		printDevice(d)
+	}
+	// TODO: END DEBUG
+
+	// parse keys into wgtypes
+	pri, err := wgtypes.ParseKey(wgConf.PrivateKey)
+	if err != nil {
+		log.Fatalf("failed to parse private key: %v", err)
+	}
+
+	// configure wireguard interface with peer information
+	port := wgConf.ListenPort
+	peers := []wgtypes.PeerConfig{}
+
+	for _, clientPeer := range wgConf.Peers {
+		parsedPubkey, err := wgtypes.ParseKey(clientPeer.PublicKey)
+		if err != nil {
+			// log failure but continue
+			log.Printf("failed to parse peer pubkey: %v", err)
+		}
+
+		wgPeer := wgtypes.PeerConfig{
+			PublicKey:         parsedPubkey,
+			Remove:            false,
+			UpdateOnly:        false,
+			PresharedKey:      nil,
+			Endpoint:          nil,
+			ReplaceAllowedIPs: true,
+			AllowedIPs: []net.IPNet{{
+				IP:   net.ParseIP(clientPeer.AllowedIP),
+				Mask: net.IPv4Mask(255, 255, 255, 255), // TODO: actually use clientPeer.AllowedCidr
+			}},
+		}
+
+		peers = append(peers, wgPeer)
+	}
+
+	conf := wgtypes.Config{
+		PrivateKey:   &pri,
+		ListenPort:   &port,
+		ReplacePeers: true,
+		Peers:        peers,
+	}
+
+	if err := client.ConfigureDevice(d.InterfaceName, conf); err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println(err)
+		} else {
+			log.Fatalf("Unknown config error: %v", err)
+		}
+	}
+
+	// configure forwarding rules (via iptables for now but consider netfilter)
+	iptables, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
+	if err != nil {
+		log.Fatalf("failed to create iptables interface: %v", err)
+	}
+
+	// accept and forward from rvpn wireguard interface
+	err = iptables.Append("filter", "FORWARD", "-i", d.InterfaceName, "-j", "ACCEPT")
+	if err != nil {
+		log.Printf("iptables failed to accept from rvpn network interface")
+	}
+
+	// enable masquerading on defualt interface output
+	err = iptables.Append("nat", "POSTROUTING", "-o", d.DefaultIFaceLink.Attrs().Name, "-j", "MASQUERADE")
+	if err != nil {
+		log.Printf("iptables failed to masquerade onto default interface")
+	}
+
+	d.vpnServerMode = true
+}
+
+// AppendPeers appends a new client peer to the rVPN Wireguard configuration
+func (d *WireguardDaemon) AppendPeers(toAppendPeers []WireGuardPeer) {
+	log.Printf("appending new peers to Wireguard Daemon")
+
+	// create wgctrl client to control wireguard device
+	client, err := wgctrl.New()
+	if err != nil {
+		log.Fatalf("failed to open client: %v", err)
+	}
+	defer client.Close()
+
+	// configure wireguard interface with peer information
+	peers := []wgtypes.PeerConfig{}
+
+	for _, clientPeer := range toAppendPeers {
+		parsedPubkey, err := wgtypes.ParseKey(clientPeer.PublicKey)
+		if err != nil {
+			// log failure but continue
+			log.Printf("failed to parse peer pubkey: %v", err)
+		}
+
+		wgPeer := wgtypes.PeerConfig{
+			PublicKey:         parsedPubkey,
+			Remove:            false,
+			UpdateOnly:        false,
+			PresharedKey:      nil,
+			Endpoint:          nil,
+			ReplaceAllowedIPs: false, // TODO: investigate more about this setting
+			AllowedIPs: []net.IPNet{{
+				IP:   net.ParseIP(clientPeer.AllowedIP),
+				Mask: net.IPv4Mask(255, 255, 255, 255), // TODO: actually use clientPeer.AllowedCidr
+			}},
+		}
+
+		peers = append(peers, wgPeer)
+	}
+
+	conf := wgtypes.Config{
+		ReplacePeers: false,
+		Peers:        peers,
+	}
+
+	if err := client.ConfigureDevice(d.InterfaceName, conf); err != nil {
+		if os.IsNotExist(err) {
+			fmt.Println(err)
+		} else {
+			log.Fatalf("Unknown config error: %v", err)
+		}
+	}
+}
+
+// TODO: function to remove peer from Wireguard configuration
 
 // Disconnect instructs the wireguard daemon to disconnect from current connection
 func (d *WireguardDaemon) Disconnect() {
 	err := d.Device.Down()
 	if err != nil {
 		log.Fatalf("failed to shut down device")
+	}
+
+	// if vpnServerMode is true, delete iptables rules
+	if d.vpnServerMode {
+		iptables, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
+		if err != nil {
+			log.Fatalf("failed to create iptables interface: %v", err)
+		}
+
+		err = iptables.Delete("filter", "FORWARD", "-i", d.InterfaceName, "-j", "ACCEPT")
+		if err != nil {
+			log.Printf("iptables failed to delete accept rule on rvpn network interface")
+		}
+
+		err = iptables.Delete("nat", "POSTROUTING", "-o", d.DefaultIFaceLink.Attrs().Name, "-j", "MASQUERADE")
+		if err != nil {
+			log.Printf("iptables failed to delete masquerade rule on default interface")
+		}
 	}
 
 	// TODO: cleanup any routing rules
