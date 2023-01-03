@@ -2,6 +2,13 @@
 
 package main
 
+import (
+	"context"
+
+	"github.com/redpwn/rvpn/common"
+	"github.com/sourcegraph/jsonrpc2"
+)
+
 // EnsureDaemonStarted checks if the daemon is started
 func EnsureDaemonStarted() error {
 	// elevate and run the command "rvpn daemon"
@@ -19,9 +26,16 @@ func (r *RVPNDaemon) Serve(args ServeRequest, reply *bool) error {
 
 // serveVPNHandler handles when the control plane instructs the daemon to act as a target VPN server
 func serveVPNHandler(ctx context.Context, h jrpcHandler, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
-	// NOTE: serving is not suppoted no Windows, this is just a stub
-
+	// NOTE: serving is not supported on Windows, this is just a stub
 	conn.Reply(ctx, req.ID, common.ServeVPNResponse{
+		Success: false,
+	})
+}
+
+// appendVPNPeersHandler is responsible for append peers to the Wireguard config
+func appendVPNPeersHandler(ctx context.Context, h jrpcHandler, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	// NOTE: serving is not supported on Windows, this is just a stub
+	conn.Reply(ctx, req.ID, common.AppendVPNPeersResponse{
 		Success: false,
 	})
 }
