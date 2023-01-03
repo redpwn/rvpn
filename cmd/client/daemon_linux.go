@@ -151,4 +151,7 @@ func appendVPNPeersHandler(ctx context.Context, h jrpcHandler, conn *jsonrpc2.Co
 
 	h.activeRVPNDaemon.wireguardDaemon.AppendPeers(wgPeers)
 	log.Printf("daemon successfully appended new peers to rVPN target VPN server")
+	conn.Reply(ctx, req.ID, common.AppendVPNPeersResponse{
+		Success: true,
+	})
 }
