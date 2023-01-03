@@ -138,7 +138,7 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 }
 
 // UpdateConf updates the configuration of a WireguardDaemon with the provided config
-func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
+func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig) {
 	log.Println("starting wireguard network interface configuration")
 
 	err := d.Device.Up()
@@ -249,12 +249,12 @@ func (d *WireguardDaemon) UpdateConf(wgConf WgConfig) {
 	}
 	// TODO: END DEBUG
 
-	pri, err := wgtypes.ParseKey(wgConf.PrivateKey)
+	pri, err := wgtypes.ParseKey(wgConf.ClientPrivateKey)
 	if err != nil {
 		log.Fatalf("failed to parse private key: %v", err)
 	}
 
-	pub, err := wgtypes.ParseKey(wgConf.PublicKey)
+	pub, err := wgtypes.ParseKey(wgConf.ServerPublicKey)
 	if err != nil {
 		log.Fatalf("failed to parse public key: %v", err)
 	}

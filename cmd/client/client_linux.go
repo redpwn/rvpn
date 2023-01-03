@@ -100,5 +100,5 @@ func ClientServeProfile(profile string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("rVPN successfully serving as target VPN server for profile%s\n", profile)
+	fmt.Printf("rVPN successfully serving as target VPN server for profile %s\n", profile)
 }

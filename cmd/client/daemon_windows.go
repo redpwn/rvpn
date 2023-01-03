@@ -16,3 +16,12 @@ func (r *RVPNDaemon) Serve(args ServeRequest, reply *bool) error {
 
 	return nil
 }
+
+// serveVPNHandler handles when the control plane instructs the daemon to act as a target VPN server
+func serveVPNHandler(ctx context.Context, h jrpcHandler, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	// NOTE: serving is not suppoted no Windows, this is just a stub
+
+	conn.Reply(ctx, req.ID, common.ServeVPNResponse{
+		Success: false,
+	})
+}

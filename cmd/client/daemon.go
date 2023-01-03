@@ -100,7 +100,49 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 
 		// we must have a saved public key in rVPN state, return information to control plane
 		clientInformationResponse := common.GetClientInformationResponse{
+			Success:   true,
 			PublicKey: rVPNState.PublicKey,
+		}
+		conn.Reply(ctx, req.ID, clientInformationResponse)
+	case common.GetServeInformationMethod:
+		// return serve information to rVPN control plane
+
+		// get public key from rVPN state
+		rVPNState, err := GetRVpnState()
+		if err != nil {
+			log.Printf("failed to get rVPN state: %v", err)
+			conn.Reply(ctx, req.ID, common.GetServeInformationResponse{
+				Success: false,
+			})
+		}
+
+		if rVPNState.PublicKey == "" {
+			// public key is not set, regenerate wg keys
+			privateKey, publicKey, err := wg.GenerateKeyPair()
+			if err != nil {
+				log.Printf("failed to generate new wireguard keypair: %v", err)
+				conn.Reply(ctx, req.ID, common.GetServeInformationResponse{
+					Success: false,
+				})
+			}
+
+			rVPNState.PrivateKey = privateKey
+			rVPNState.PublicKey = publicKey
+
+			err = SetRVpnState(rVPNState)
+			if err != nil {
+				log.Printf("failed to save rVPN state: %v", err)
+				conn.Reply(ctx, req.ID, common.GetServeInformationResponse{
+					Success: false,
+				})
+			}
+		}
+
+		// we must have a saved public key in rVPN state, return information to control plane
+		clientInformationResponse := common.GetServeInformationResponse{
+			Success:       true,
+			PublicKey:     rVPNState.PublicKey,
+			PublicVpnPort: "21820", // TODO: allow this to be overriden with config flags
 		}
 		conn.Reply(ctx, req.ID, clientInformationResponse)
 	case common.ConnectServerMethod:
@@ -142,22 +184,33 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		}
 
 		// update rVPN wireguard config with instructions from rVPN control plane
-		userConfig := wg.WgConfig{
-			PrivateKey: rVPNState.PrivateKey,
-			PublicKey:  connectServerRequest.ServerPublicKey,
-			ClientIp:   connectServerRequest.ClientIp,
-			ClientCidr: connectServerRequest.ClientCidr,
-			ServerIp:   connectServerRequest.ServerIp,
-			ServerPort: connectServerRequest.ServerPort,
-			DnsIp:      connectServerRequest.DnsIp,
+		userConfig := wg.ClientWgConfig{
+			ClientPrivateKey: rVPNState.PrivateKey,
+			ServerPublicKey:  connectServerRequest.ServerPublicKey,
+			ClientIp:         connectServerRequest.ClientIp,
+			ClientCidr:       connectServerRequest.ClientCidr,
+			ServerIp:         connectServerRequest.ServerIp,
+			ServerPort:       connectServerRequest.ServerPort,
+			DnsIp:            connectServerRequest.DnsIp,
 		}
-		h.activeRVPNDaemon.wireguardDaemon.UpdateConf(userConfig)
+		h.activeRVPNDaemon.wireguardDaemon.UpdateClientConf(userConfig)
 
 		// TODO: wait then run a check to ensure connection is healthy, otherwise abort
 
 		h.activeRVPNDaemon.status = StatusConnected
 
+		log.Printf("daemon successfully connected to rVPN target server")
+		conn.Reply(ctx, req.ID, common.ConnectServerResponse{
+			Success: true,
+		})
+
 		// TODO: launch goroutine to send heartbeat to keep WS alive
+	case common.ServeVPNMethod:
+		// NOTE: the serve vpn code path should only be triggered on Linux devices
+		serveVPNHandler(ctx, h, conn, req)
+	case common.AppendVPNPeersMethod:
+		// NOTE: the append peer code path should only be triggered on Linux devices
+		appendVPNPeersHandler(ctx, h, conn, req)
 	default:
 		log.Printf("unknown jrpc request method: %s\n", req.Method)
 	}
