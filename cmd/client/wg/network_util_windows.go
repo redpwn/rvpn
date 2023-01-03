@@ -3,10 +3,8 @@
 package wg
 
 import (
-	"fmt"
 	"net/netip"
 
-	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 	"golang.zx2c4.com/wireguard/windows/tunnel/winipcfg"
 )
 
