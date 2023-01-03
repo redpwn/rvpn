@@ -62,6 +62,25 @@ func (d *RVPNDatabase) createTarget(ctx context.Context, name, owner, networkIp,
 	return numRowsAffected == 1, nil
 }
 
+func (d *RVPNDatabase) updateTarget(ctx context.Context, name string, rVPNTarget *RVPNTarget) (bool, error) {
+	res, err := d.db.ExecContext(ctx, `
+		UPDATE targets
+		SET owner=$2, network_ip=$3, network_cidr=$4, dns_ip=$5, server_pubkey=$6, server_public_ip=$7, server_public_vpn_port=$8, server_internal_ip=$9, server_internal_cidr=$10, server_heartbeat=$11
+		WHERE name=$1
+	`, name, rVPNTarget.owner, rVPNTarget.networkIp, rVPNTarget.networkCidr, rVPNTarget.dnsIp, rVPNTarget.serverPubkey, rVPNTarget.serverPublicIp,
+		rVPNTarget.serverPublicVpnPort, rVPNTarget.serverInternalIp, rVPNTarget.serverInternalCidr, rVPNTarget.serverHeartbeat)
+	if err != nil {
+		return false, err
+	}
+
+	numRowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+
+	return numRowsAffected == 1, nil
+}
+
 // getTargetsByPrincipal gets targets principal is authorized to access by ACL rules
 func (d *RVPNDatabase) getTargetsByPrincipal(ctx context.Context, principal string) ([]string, error) {
 	rows, err := d.db.QueryContext(ctx, "SELECT target FROM target_acl WHERE principal=$1", principal)
@@ -212,6 +231,34 @@ func (d *RVPNDatabase) getConnection(ctx context.Context, targetName, deviceId s
 	}
 
 	return retRVPNConnection, nil
+}
+
+// getConnectionsByTarget gets all connections for a specific target
+func (d *RVPNDatabase) getConnectionsByTarget(ctx context.Context, targetName string) ([]RVPNConnection, error) {
+	rows, err := d.db.QueryContext(ctx, `
+		SELECT
+			id, target, device_id, pubkey, client_ip, client_cidr
+		FROM connections
+		WHERE target=$1
+	`, targetName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	retRVPNConnections := []RVPNConnection{}
+	for rows.Next() {
+		rVPNConnection := RVPNConnection{}
+		err := rows.Scan(&rVPNConnection.id, &rVPNConnection.target, &rVPNConnection.deviceId, &rVPNConnection.pubkey,
+			&rVPNConnection.clientIp, &rVPNConnection.clientCidr)
+		if err != nil {
+			return nil, err
+		}
+
+		retRVPNConnections = append(retRVPNConnections, rVPNConnection)
+	}
+
+	return retRVPNConnections, nil
 }
 
 // createConnection creates a a connection from rVPN client to rVPN server and returns whether it was created or already existed

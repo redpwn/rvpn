@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/websocket/v2"
@@ -22,7 +24,7 @@ var clients = make(map[string]rVpnServer)
 */
 
 // WebSocket entry point for JSON RPC between control plane and rVPN client devices
-func (a *app) clientConnection(c *fiber.Ctx) error {
+func (a *app) clientConnect(c *fiber.Ctx) error {
 	target := c.Params("target")
 	if target == "" {
 		return c.Status(400).JSON(ErrorResponse("target must not be empty"))
@@ -61,18 +63,20 @@ func (a *app) clientConnection(c *fiber.Ctx) error {
 			return
 		}
 
-		// get target information and sure target is alive
+		// TODO: proper authZ (ensure deviceId is allowed to access target server)
+
+		// get target information and ensure target is alive
 		rVPNTarget, err := a.db.getTargetByName(ctx, target)
 		if err != nil {
 			a.log.Error("failed to get target by name for client connection", zap.Error(err))
 			return
 		}
 
-		if !targetServerAlive(rVPNTarget) {
+		if !targetServerAlive(rVPNTarget, a.connMan) {
 			// server is not alive, we cannot make a connection
 			// TODO: better way to inform client is to have this be an error for connect command (architectural issue)
 			a.log.Info("target server is not alive, we cannot connect")
-			return
+			// return TODO: remove temporary alive bypass
 		}
 
 		// we are now authentciated, create jrpc connection on top of websocket stream
@@ -87,6 +91,7 @@ func (a *app) clientConnection(c *fiber.Ctx) error {
 		}
 
 		// we must ensure there is a connection for the device
+		appendPeerToVPNServer := false
 		deviceConnection, err := a.db.getConnection(ctx, target, deviceId)
 		if err != nil {
 			a.log.Error("failed to check if connection exists", zap.Error(err))
@@ -105,6 +110,11 @@ func (a *app) clientConnection(c *fiber.Ctx) error {
 				}
 
 				deviceConnection.pubkey = clientInformationResponse.PublicKey
+
+				// re-sync client to target VPN server by appending new peer
+				appendPeerToVPNServer = true
+
+				// TODO: instruct rVPN server to remove old peer
 			}
 		} else {
 			// device connection does not exist yet, create connection using information from jrpc
@@ -131,9 +141,35 @@ func (a *app) clientConnection(c *fiber.Ctx) error {
 				a.log.Error("failed to create connection", zap.Error(err))
 				return
 			}
+
+			// append new client to target VPN server so VPN server knows about client
+			appendPeerToVPNServer = true
 		}
 
-		// the device connection exists, jrpc client to connect to rVPN server
+		if appendPeerToVPNServer {
+			// if needed, instruct vpn server to add client as a peer
+			a.log.Info("appending client to VPN server as a peer")
+			vpnServerConn := a.connMan.getVPNServerConn(target)
+			if vpnServerConn == nil {
+				a.log.Error("vpn server connection is not alive, cannot add new peer")
+			}
+
+			appendVPNPeersRequest := common.AppendVPNPeersRequest{
+				Peers: []common.WireGuardPeer{{
+					PublicKey:   deviceConnection.pubkey,
+					AllowedIP:   deviceConnection.clientIp,
+					AllowedCidr: deviceConnection.clientCidr,
+				}},
+			}
+
+			var appendVPNPeersResponse common.AppendVPNPeersResponse
+			err = vpnServerConn.Call(ctx, common.AppendVPNPeersMethod, appendVPNPeersRequest, &appendVPNPeersResponse)
+			if err != nil {
+				a.log.Error("failed to call appendvpnpeers via jrpc for new device connect", zap.Error(err))
+			}
+		}
+
+		// device connection is complete, jrpc client to connect to rVPN server
 		intServerVpnPort, err := strconv.Atoi(rVPNTarget.serverPublicVpnPort)
 		if err != nil {
 			a.log.Error("failed to convert vpn port to int", zap.Error(err))
@@ -154,6 +190,19 @@ func (a *app) clientConnection(c *fiber.Ctx) error {
 		err = jrpcConn.Call(ctx, common.ConnectServerMethod, connectServerRequest, &connectServerResponse)
 		if err != nil {
 			a.log.Error("failed to call connectserver via jrpc", zap.Error(err))
+		}
+
+		// DEBUG
+		fmt.Println("issued connect server with following info", connectServerRequest.ServerIp, connectServerRequest.ServerPublicKey, connectServerRequest.ClientPublicKey)
+
+		// save the jrpc connection for the rvpn client to the connection manager
+		a.connMan.setVPNClientConn(target, jrpcConn)
+
+		// TODO: loop to keep WebSocket alive (check for last heartbeat)
+		lastHeartbeat := time.Now()
+		for time.Since(lastHeartbeat) < 5*time.Minute {
+			// if last heartbeat was within 5 minutes, keep connection alive
+			time.Sleep(30 * time.Second) // sleep for 30 seconds
 		}
 	})
 

@@ -20,7 +20,7 @@ func syncConnectionPubkey(ctx context.Context, db *RVPNDatabase, rVPNConnection 
 }
 
 // targetServerAlive returns if the target server a device is connecting to is alive
-func targetServerAlive(rVPNTarget *RVPNTarget) bool {
+func targetServerAlive(rVPNTarget *RVPNTarget, connMan *ConnectionManager) bool {
 	if rVPNTarget == nil {
 		// target does not exist, thus it is not alive
 		return false
@@ -33,7 +33,12 @@ func targetServerAlive(rVPNTarget *RVPNTarget) bool {
 
 	// TODO: check server heartbeat
 
-	return true
+	// check that target is available in the connection manager
+	vpnServerConn := connMan.getVPNServerConn(rVPNTarget.name)
+	// if nil, vpn server connection was not found
+	foundVpnServerConn := vpnServerConn != nil
+
+	return foundVpnServerConn
 }
 
 // getNextClientIp returns the next client ip for a target
