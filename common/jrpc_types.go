@@ -2,6 +2,7 @@ package common
 
 // add strict types for jrpc method names
 const (
+	GetDeviceAuthMethod        = "get_device_auth"
 	GetClientInformationMethod = "get_client_information"
 	GetServeInformationMethod  = "get_serve_information"
 	ConnectServerMethod        = "connect_server"
@@ -14,6 +15,15 @@ type WireGuardPeer struct {
 	PublicKey   string `json:"publickey"`
 	AllowedIP   string `json:"allowedip"`
 	AllowedCidr string `json:"allowedcidr"`
+}
+
+// GetDeviceAuthRequest holds the arguments for get_device_auth request
+type GetDeviceAuthRequest struct{}
+
+// GetDeviceAuthResponse holds the arguments for get_device_auth response
+type GetDeviceAuthResponse struct {
+	Success     bool   `json:"success"`
+	DeviceToken string `json:"devicetoken"`
 }
 
 // GetClientInformationRequest holds the arguments for get_client_information request
