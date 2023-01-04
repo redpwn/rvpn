@@ -59,11 +59,19 @@ func NewRVPNDaemon() *RVPNDaemon {
 
 // jsonRPC handler for daemon
 type jrpcHandler struct {
-	activeRVPNDaemon *RVPNDaemon
+	activeRVPNDaemon *RVPNDaemon // rVPN daemon for jrpcHandler to control
+	deviceToken      string      // deviceToken for jrpcHandler to AuthN
 }
 
 func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
 	switch req.Method {
+	case common.GetDeviceAuthMethod:
+		// return device AuthN information to rVPN control plane
+
+		conn.Reply(ctx, req.ID, common.GetDeviceAuthResponse{
+			Success:     true,
+			DeviceToken: h.deviceToken,
+		})
 	case common.GetClientInformationMethod:
 		// return client information to rVPN control plane
 
@@ -241,17 +249,10 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 	r.activeControlPlaneWs = conn
 	r.activeProfile = args.Profile
 
-	// send device token to authenticate with control plane
-	err = conn.Write(ctx, websocket.MessageText, []byte(args.DeviceToken))
-	if err != nil {
-		log.Printf("failed to write device token to control plane web socket: %v", err)
-		*reply = false
-		return nil
-	}
-
 	// now we are authenticated, create jrpc connection on top of websocket stream
 	jrpcConn := jsonrpc2.NewConn(ctx, jrpc.NewObjectStream(conn), jrpcHandler{
 		activeRVPNDaemon: r,
+		deviceToken:      args.DeviceToken,
 	})
 
 	r.jrpcConn = jrpcConn

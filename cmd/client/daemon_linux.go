@@ -37,17 +37,10 @@ func (r *RVPNDaemon) Serve(args ServeRequest, reply *bool) error {
 	r.activeControlPlaneWs = conn
 	r.activeProfile = args.Profile
 
-	// send device token to authenticate with control plane
-	err = conn.Write(ctx, websocket.MessageText, []byte(args.DeviceToken))
-	if err != nil {
-		log.Printf("failed to write device token to control plane web socket: %v", err)
-		*reply = false
-		return nil
-	}
-
 	// now we are authenticated, create jrpc connection on top of websocket stream
 	jrpcConn := jsonrpc2.NewConn(ctx, jrpc.NewObjectStream(conn), jrpcHandler{
 		activeRVPNDaemon: r,
+		deviceToken:      args.DeviceToken,
 	})
 
 	r.jrpcConn = jrpcConn
