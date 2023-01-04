@@ -29,33 +29,27 @@ func (a *app) clientServe(c *fiber.Ctx) error {
 			cancelFunc()
 			wc.Close()
 
-			// clean up self from
+			// TODO: clean up self from connMan
 		}()
 
-		// we first wait for the server to send their deviceToken and authenticate
-		messageType, message, err := wc.ReadMessage()
+		// we are now authentciated, create jrpc connection on top of websocket stream
+		jrpcConn := jsonrpc2.NewConn(c.Context(), jrpc.NewObjectStream(wc), nil)
+
+		// request device auth
+		var getDeviceAuthResponse common.GetDeviceAuthResponse
+		err := jrpcConn.Call(ctx, common.GetDeviceAuthMethod, common.GetDeviceAuthRequest{}, &getDeviceAuthResponse)
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				a.log.Error("failed to read websocket message", zap.Error(err))
-			}
-
+			a.log.Error("failed to call getdeviceauth via jrpc", zap.Error(err))
 			return
 		}
 
-		var deviceId string
-		if messageType == websocket.TextMessage {
-			// message is the device token, validate and extract device
-			deviceId, err = a.ValidateDeviceToken(string(message))
-			if err != nil {
-				a.log.Error("failed to validate device token")
-				return
-			}
-		} else {
-			a.log.Error("received non text message after initializing connection")
+		deviceId, err := a.ValidateDeviceToken(getDeviceAuthResponse.DeviceToken)
+		if err != nil {
+			a.log.Error("failed to validate device token")
 			return
 		}
 
-		// TODO: proper authZ (ensure deviceId is allowed to access target server)
+		// TODO(authentication): proper authZ (ensure deviceId is allowed to access target server)
 		if deviceId == "" {
 			a.log.Info("something went wrong; this is a stub for authZ")
 		}
@@ -72,10 +66,9 @@ func (a *app) clientServe(c *fiber.Ctx) error {
 		}
 
 		// NOTE: current behavior is to override if connection is already being served
-		// TODO: investigate if there should be a targetServeAlice check + force flag
+		// TODO: investigate if there should be a targetServeAlive check + force flag
 
-		// we are now authentciated, create jrpc connection on top of websocket stream
-		jrpcConn := jsonrpc2.NewConn(c.Context(), jrpc.NewObjectStream(wc), nil)
+		// we are now authenticated and have confirmed that the vpn target exists
 
 		// request client information (pubkey, public vpn port) via jrpc
 		var serveInformationResponse common.GetServeInformationResponse

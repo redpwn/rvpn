@@ -38,32 +38,27 @@ func (a *app) clientConnect(c *fiber.Ctx) error {
 			wc.Close()
 		}()
 
-		// we first wait for the server to send their deviceToken and authenticate
-		messageType, message, err := wc.ReadMessage()
+		// create jrpc connection on top of websocket stream
+		jrpcConn := jsonrpc2.NewConn(c.Context(), jrpc.NewObjectStream(wc), nil) // TODO: impl handler otherwise server may crash
+
+		// request device auth
+		var getDeviceAuthResponse common.GetDeviceAuthResponse
+		err := jrpcConn.Call(ctx, common.GetDeviceAuthMethod, common.GetDeviceAuthRequest{}, &getDeviceAuthResponse)
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				a.log.Error("failed to read websocket message", zap.Error(err))
-			}
-
+			a.log.Error("failed to call getdeviceauth via jrpc", zap.Error(err))
 			return
 		}
 
-		var deviceId string
-		if messageType == websocket.TextMessage {
-			// message is the device token, validate and extract device
-			deviceId, err = a.ValidateDeviceToken(string(message))
-			if err != nil {
-				a.log.Error("failed to validate device token")
-				return
-			}
-
-			// TODO(authentication): validate that this deviceId is for the target
-		} else {
-			a.log.Error("received non text message after initializing connection")
+		deviceId, err := a.ValidateDeviceToken(getDeviceAuthResponse.DeviceToken)
+		if err != nil {
+			a.log.Error("failed to validate device token")
 			return
 		}
 
-		// TODO: proper authZ (ensure deviceId is allowed to access target server)
+		// TODO(authentication): proper authZ (ensure deviceId is allowed to access target server)
+		if deviceId == "" {
+			a.log.Info("something went wrong; this is a stub for authZ")
+		}
 
 		// get target information and ensure target is alive
 		rVPNTarget, err := a.db.getTargetByName(ctx, target)
@@ -79,8 +74,7 @@ func (a *app) clientConnect(c *fiber.Ctx) error {
 			// return TODO: remove temporary alive bypass
 		}
 
-		// we are now authentciated, create jrpc connection on top of websocket stream
-		jrpcConn := jsonrpc2.NewConn(c.Context(), jrpc.NewObjectStream(wc), nil)
+		// we are now authentciated and target server is alive
 
 		// request client information (pubkey) via jrpc
 		var clientInformationResponse common.GetClientInformationResponse
