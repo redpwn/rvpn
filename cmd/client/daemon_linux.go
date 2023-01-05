@@ -25,12 +25,14 @@ func EnsureDaemonStarted() error {
 // Serve instructs the rVPN daemon to act as a target VPN server
 func (r *RVPNDaemon) Serve(args ServeRequest, reply *bool) error {
 	// create long-lived WebSocket connection acting as jrpc channel between client and control plane
-	ctx := context.Background()
+	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	websocketURL := RVPN_CONTROL_PLANE_WS + "/api/v1/target/" + args.Profile + "/serve"
 	conn, _, err := websocket.Dial(ctx, websocketURL, nil)
 	if err != nil {
 		log.Printf("failed to connect to rVPN control plane web socket: %v", err)
+		cancelFunc()
+
 		*reply = false
 		return nil
 	}
@@ -45,6 +47,7 @@ func (r *RVPNDaemon) Serve(args ServeRequest, reply *bool) error {
 	})
 
 	r.jrpcConn = jrpcConn
+	r.jrpcCtxCancel = cancelFunc
 
 	*reply = true
 	return nil
