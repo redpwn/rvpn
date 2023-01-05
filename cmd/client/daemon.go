@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"log"
 	"net"
+	"net/http"
 	"net/rpc"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -63,6 +65,28 @@ func NewRVPNDaemon() *RVPNDaemon {
 type jrpcHandler struct {
 	activeRVPNDaemon *RVPNDaemon // rVPN daemon for jrpcHandler to control
 	deviceToken      string      // deviceToken for jrpcHandler to AuthN
+	controlPlaneAddr string      // control plane address for the jrpc connection
+}
+
+// remoteAddressDialHook hooks DialContext of the http client and writes the remote ip to an outparam
+func remoteAddressDialHook(remoteAddressPtr *net.Addr) func(ctx context.Context, network string, address string) (net.Conn, error) {
+	hookedDialContext := func(ctx context.Context, network, address string) (net.Conn, error) {
+		originalDialer := &net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}
+
+		conn, err := originalDialer.DialContext(ctx, network, address)
+		if err != nil {
+			return nil, err
+		}
+
+		// conn was successfully created
+		*remoteAddressPtr = conn.RemoteAddr()
+		return conn, err
+	}
+
+	return hookedDialContext
 }
 
 // heartbeatGenerator keeps sending heartbeats until context is cancelled every interval
@@ -271,8 +295,24 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 	// create long-lived WebSocket connection acting as jrpc channel between client and control plane
 	ctx, cancelFunc := context.WithCancel(context.Background())
 
+	var controlPlaneRemoteAddr net.Addr
+	customTransport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           remoteAddressDialHook(&controlPlaneRemoteAddr),
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	customHttpClient := http.Client{
+		Transport: customTransport,
+	}
+
 	websocketURL := RVPN_CONTROL_PLANE_WS + "/api/v1/target/" + args.Profile + "/connect"
-	conn, _, err := websocket.Dial(ctx, websocketURL, nil)
+	conn, _, err := websocket.Dial(ctx, websocketURL, &websocket.DialOptions{
+		HTTPClient: &customHttpClient,
+	})
 	if err != nil {
 		log.Printf("failed to connect to rVPN control plane web socket: %v", err)
 		cancelFunc()
@@ -284,10 +324,15 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 	r.activeControlPlaneWs = conn
 	r.activeProfile = args.Profile
 
+	// parse out the remote address of control plane
+	// NOTE: we expect the net.addr to be of the form "192.168.1.1:80"
+	controlPlaneAddrStr := strings.Split(controlPlaneRemoteAddr.String(), ":")[0]
+
 	// now we are authenticated, create jrpc connection on top of websocket stream
 	jrpcConn := jsonrpc2.NewConn(ctx, jrpc.NewObjectStream(conn), jrpcHandler{
 		activeRVPNDaemon: r,
 		deviceToken:      args.DeviceToken,
+		controlPlaneAddr: controlPlaneAddrStr,
 	})
 
 	r.jrpcConn = jrpcConn
