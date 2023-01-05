@@ -45,6 +45,7 @@ type RVPNDaemon struct {
 	activeControlPlaneWs *websocket.Conn
 	activeProfile        string
 	jrpcConn             *jsonrpc2.Conn
+	jrpcCtxCancel        context.CancelFunc // cancels the context for the jrpc ctx
 
 	// internal variables used for underlying control
 	wireguardDaemon *wg.WireguardDaemon
@@ -85,7 +86,7 @@ func heartbeatGenerator(ctx context.Context, interval time.Duration, conn *jsonr
 				log.Printf("failed to send device heartbeat: %v", err)
 			}
 
-			log.Printf("send device heartbeat to control plane\n")
+			log.Printf("sent device heartbeat to control plane\n")
 		case <-ctx.Done():
 			// context has been cancelled
 			return
@@ -268,12 +269,14 @@ func (r *RVPNDaemon) Status(args string, reply *RVPNStatus) error {
 // Connect is responsible for creating WebSocket connection to control-plane
 func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 	// create long-lived WebSocket connection acting as jrpc channel between client and control plane
-	ctx := context.Background()
+	ctx, cancelFunc := context.WithCancel(context.Background())
 
 	websocketURL := RVPN_CONTROL_PLANE_WS + "/api/v1/target/" + args.Profile + "/connect"
 	conn, _, err := websocket.Dial(ctx, websocketURL, nil)
 	if err != nil {
 		log.Printf("failed to connect to rVPN control plane web socket: %v", err)
+		cancelFunc()
+
 		*reply = false
 		return nil
 	}
@@ -288,6 +291,7 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 	})
 
 	r.jrpcConn = jrpcConn
+	r.jrpcCtxCancel = cancelFunc
 
 	*reply = true
 	return nil
@@ -296,6 +300,7 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 func (r *RVPNDaemon) Disconnect(args string, reply *bool) error {
 	r.wireguardDaemon.Disconnect()
 	r.jrpcConn.Close()
+	r.jrpcCtxCancel()
 	r.status = StatusDisconnected
 
 	*reply = true
