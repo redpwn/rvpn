@@ -13,6 +13,27 @@ import (
 	"go.uber.org/zap"
 )
 
+// jsonRPC handler for serving devices
+type jrpcServeHandler struct {
+	heartbeatChan chan int
+
+	// internal constructs
+	log *zap.Logger
+}
+
+func (h jrpcServeHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	switch req.Method {
+	case common.DeviceHeartbeatMethod:
+		// acknowledge heartbeat and send message to channel
+		h.heartbeatChan <- 1
+		conn.Reply(ctx, req.ID, common.DeviceHeartbeatResponse{
+			Success: true,
+		})
+	default:
+		h.log.Info("received unknown jrpc command")
+	}
+}
+
 // WebSocket entry point for JSON RPC between control plane and rVPN serving devices
 func (a *app) clientServe(c *fiber.Ctx) error {
 	target := c.Params("target")
@@ -33,7 +54,11 @@ func (a *app) clientServe(c *fiber.Ctx) error {
 		}()
 
 		// we are now authentciated, create jrpc connection on top of websocket stream
-		jrpcConn := jsonrpc2.NewConn(c.Context(), jrpc.NewObjectStream(wc), nil)
+		heartbeatChan := make(chan int)
+		jrpcConn := jsonrpc2.NewConn(c.Context(), jrpc.NewObjectStream(wc), jrpcServeHandler{
+			heartbeatChan: heartbeatChan,
+			log:           a.log,
+		})
 
 		// request device auth
 		var getDeviceAuthResponse common.GetDeviceAuthResponse
@@ -136,12 +161,8 @@ func (a *app) clientServe(c *fiber.Ctx) error {
 
 		// TODO: broadcast to all clients on the profile to connect to the new VPN server
 
-		// TODO: loop to keep WebSocket alive (check for last heartbeat)
-		lastHeartbeat := time.Now()
-		for time.Since(lastHeartbeat) < 5*time.Minute {
-			// if last heartbeat was within 5 minutes, keep connection alive
-			time.Sleep(30 * time.Second) // sleep for 30 seconds
-		}
+		// block to keep WebSocket alive (stale timeout of 3 minutes)
+		blockUntilStale(ctx, heartbeatChan, 3*time.Minute)
 	})
 
 	return handler(c)
