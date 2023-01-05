@@ -256,7 +256,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 			ServerPort:       connectServerRequest.ServerPort,
 			DnsIp:            connectServerRequest.DnsIp,
 		}
-		h.activeRVPNDaemon.wireguardDaemon.UpdateClientConf(userConfig)
+		h.activeRVPNDaemon.wireguardDaemon.UpdateClientConf(userConfig, h.controlPlaneAddr)
 
 		// TODO: wait then run a check to ensure connection is healthy, otherwise abort
 

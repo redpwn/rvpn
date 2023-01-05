@@ -27,6 +27,7 @@ type WireguardDaemon struct {
 	DefaultAdapter *winipcfg.IPAdapterAddresses
 	DefaultGateway netip.Addr
 	ServerIP       netip.Prefix
+	ControlPlaneIP netip.Prefix
 	InterfaceName  string
 
 	// internal variables used for managing the daemon
@@ -138,7 +139,8 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 }
 
 // UpdateConf updates the configuration of a WireguardDaemon with the provided config
-func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig) {
+// NOTE: must route controlPlaneAddr to default gateway to preserve control plane WebSocket
+func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAddr string) {
 	log.Println("starting wireguard network interface configuration")
 
 	err := d.Device.Up()
@@ -153,6 +155,13 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig) {
 	}
 
 	d.ServerIP = serverIP
+
+	controlPlaneIP, err := netip.ParsePrefix(controlPlaneAddr + "/32")
+	if err != nil {
+		log.Fatalf("failed to parse control plane ip: %v", err)
+	}
+
+	d.ControlPlaneIP = controlPlaneIP
 
 	// find default adapater and add a highest priority route so traffic to vpn host is not routed through wireguard interface
 	currDefaultInterface, gatewayIP, err := findDefaultLUID(family, d.Adapter.LUID)
@@ -180,6 +189,9 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig) {
 
 		// set target server route on default adapter as it has not yet been set
 		d.DefaultAdapter.LUID.AddRoute(d.ServerIP, gatewayIP, 0)
+		// set control plane address route on default adapater
+		d.DefaultAdapter.LUID.AddRoute(d.ControlPlaneIP, gatewayIP, 0)
+
 		d.DefaultGateway = gatewayIP
 	} else {
 		// defaultInterface has already been set
@@ -321,4 +333,5 @@ func (d *WireguardDaemon) ShutdownDevice() {
 
 	// clean up routes (route we added on default interface to let wg traffic route properly)
 	d.DefaultAdapter.LUID.DeleteRoute(d.ServerIP, d.DefaultGateway)
+	d.DefaultAdapter.LUID.DeleteRoute(d.ControlPlaneIP, d.DefaultGateway)
 }
