@@ -2,6 +2,7 @@ package common
 
 // add strict types for jrpc method names
 const (
+	// jRPC commands from server to client
 	GetDeviceAuthMethod        = "get_device_auth"
 	GetClientInformationMethod = "get_client_information"
 	GetServeInformationMethod  = "get_serve_information"
@@ -9,6 +10,9 @@ const (
 	ServeVPNMethod             = "serve_vpn"
 	AppendVPNPeersMethod       = "append_vpn_peers"
 	DeleteVPNPeersMethod       = "delete_vpn_peers"
+
+	// jRPC commands from client to server
+	DeviceHeartbeatMethod = "device_heartbeat"
 )
 
 type WireGuardPeer struct {
@@ -75,22 +79,30 @@ type ServeVPNResponse struct {
 	Success bool `json:"success"`
 }
 
-// AppendVPNPeersRequest holds the arguments for the append_vpn_peers request to modify peers
+// AppendVPNPeersRequest holds the arguments for the append_vpn_peers request to append peers
 type AppendVPNPeersRequest struct {
 	Peers []WireGuardPeer `json:"peers"`
 }
 
-// AppendVPNPeersResponse holds the response for the append_vpn_peers request to modify peers
+// AppendVPNPeersResponse holds the response for the append_vpn_peers request to append peers
 type AppendVPNPeersResponse struct {
 	Success bool `json:"success"`
 }
 
-// DeleteVPNPeersRequest holds the arguments for the delete_vpn_peers request to modify peers
+// DeleteVPNPeersRequest holds the arguments for the delete_vpn_peers request to delete peers
 type DeleteVPNPeersRequest struct {
 	Peers []WireGuardPeer `json:"peers"`
 }
 
-// DeleteVPNPeersResponse holds the response for the delete_vpn_peers request to modify peers
+// DeleteVPNPeersResponse holds the response for the delete_vpn_peers request to delete peers
 type DeleteVPNPeersResponse struct {
+	Success bool `json:"success"`
+}
+
+// DeviceHeartbeatRequest holds the arguments for the device_heartbeat request to indicate aliveness of the device
+type DeviceHeartbeatRequest struct{}
+
+// DeviceHeartbeatResponse holds the response for the device_heartbeat request to indicate aliveness of the device
+type DeviceHeartbeatResponse struct {
 	Success bool `json:"success"`
 }

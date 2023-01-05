@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/netip"
+	"time"
 )
 
 // syncConnectionPubkey syncs so that the specified rVPN connection is updated in the database
@@ -86,4 +87,27 @@ func getNextClientIp(ctx context.Context, db *RVPNDatabase, target string) (stri
 
 	// we found an ip to allocate, ensure this is not raced via unique db constraint
 	return ipToAllocate, rVPNTarget.networkCidr, nil
+}
+
+// blockUntilStale will loop every minute and check if heartbeat is stale (greather than timeout)
+func blockUntilStale(ctx context.Context, heartbeatChan chan int, staleTimeout time.Duration) {
+	lastHeartbeat := time.Now()
+	ticker := time.NewTicker(1 * time.Minute) // check for staleness every minute
+
+	for {
+		select {
+		case <-ticker.C:
+			// check if lastHeartbeat is stale
+			if time.Since(lastHeartbeat) >= staleTimeout {
+				// connection is stale and function should return and unblock
+				return
+			}
+		case <-ctx.Done():
+			// context has expired, unblock
+			return
+		case <-heartbeatChan:
+			// we received a heartbeat
+			lastHeartbeat = time.Now()
+		}
+	}
 }

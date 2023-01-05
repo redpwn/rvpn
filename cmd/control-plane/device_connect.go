@@ -15,13 +15,26 @@ import (
 	"go.uber.org/zap"
 )
 
-/*
-type rVpnServer struct {
-	conn *jsonrpc2.Conn
+// jsonRPC handler for client devices
+type jrpcClientHandler struct {
+	heartbeatChan chan int
+
+	// internal constructs
+	log *zap.Logger
 }
 
-var clients = make(map[string]rVpnServer)
-*/
+func (h jrpcClientHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
+	switch req.Method {
+	case common.DeviceHeartbeatMethod:
+		// acknowledge heartbeat and send message to channel
+		h.heartbeatChan <- 1
+		conn.Reply(ctx, req.ID, common.DeviceHeartbeatResponse{
+			Success: true,
+		})
+	default:
+		h.log.Info("received unknown jrpc command")
+	}
+}
 
 // WebSocket entry point for JSON RPC between control plane and rVPN client devices
 func (a *app) clientConnect(c *fiber.Ctx) error {
@@ -38,8 +51,12 @@ func (a *app) clientConnect(c *fiber.Ctx) error {
 			wc.Close()
 		}()
 
-		// create jrpc connection on top of websocket stream
-		jrpcConn := jsonrpc2.NewConn(c.Context(), jrpc.NewObjectStream(wc), nil) // TODO: impl handler otherwise server may crash
+		// create jrpc connection on top of websocket stream; each connection has its own handler instance
+		heartbeatChan := make(chan int, 2) // buffer 2 heartbeats
+		jrpcConn := jsonrpc2.NewConn(c.Context(), jrpc.NewObjectStream(wc), jrpcClientHandler{
+			heartbeatChan: heartbeatChan,
+			log:           a.log,
+		})
 
 		// request device auth
 		var getDeviceAuthResponse common.GetDeviceAuthResponse
@@ -192,12 +209,8 @@ func (a *app) clientConnect(c *fiber.Ctx) error {
 		// save the jrpc connection for the rvpn client to the connection manager
 		a.connMan.setVPNClientConn(target, jrpcConn)
 
-		// TODO: loop to keep WebSocket alive (check for last heartbeat)
-		lastHeartbeat := time.Now()
-		for time.Since(lastHeartbeat) < 5*time.Minute {
-			// if last heartbeat was within 5 minutes, keep connection alive
-			time.Sleep(30 * time.Second) // sleep for 30 seconds
-		}
+		// block to keep WebSocket alive (stale timeout of 3 minutes)
+		blockUntilStale(ctx, heartbeatChan, 3*time.Minute)
 	})
 
 	return handler(c)
