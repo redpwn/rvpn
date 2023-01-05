@@ -26,6 +26,7 @@ type WireguardDaemon struct {
 	Uapi             net.Listener
 	DefaultIFaceLink netlink.Link
 	ServerIP         netip.Prefix
+	ControlPlaneIP   netip.Prefix
 	InterfaceName    string
 
 	// internal variables used for managing the daemon
@@ -103,7 +104,8 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 }
 
 // UpdateClientConf updates the configuration of a WireguardDaemon with the provided config for rVPN clients
-func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig) {
+// NOTE: must route controlPlaneAddr to default gateway to preserve control plane WebSocket
+func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAddr string) {
 	log.Println("starting wireguard network interface configuration for clients")
 
 	interfaceLink, err := netlink.LinkByName(d.InterfaceName)
@@ -121,12 +123,20 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig) {
 		log.Fatalf("failed to bring up device: %v", err)
 	}
 
+	// parse out server and control plane ips
 	serverIP, err := netip.ParsePrefix(wgConf.ServerIp + "/32")
 	if err != nil {
 		log.Fatalf("failed to parse server ip: %v", err)
 	}
 
 	d.ServerIP = serverIP
+
+	controlPlaneIP, err := netip.ParsePrefix(controlPlaneAddr + "/32")
+	if err != nil {
+		log.Fatalf("failed to parse control plane ip: %v", err)
+	}
+
+	d.ControlPlaneIP = controlPlaneIP
 
 	// find default adapater and add a highest priority route so traffic to vpn host is not routed through wireguard interface
 	currDefaultIFace, currDefaultGateway, err := findDefaultInterface()
@@ -146,6 +156,22 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig) {
 		}
 
 		route := netlink.Route{
+			LinkIndex: d.DefaultIFaceLink.Attrs().Index,
+			Dst:       parsedIPNet,
+			Gw:        currDefaultGateway,
+		}
+
+		if err := netlink.RouteAdd(&route); err != nil {
+			log.Fatalf("failed to add server IP to default interface: %v", err)
+		}
+
+		// set control plane route on default interface
+		_, parsedIPNet, err = net.ParseCIDR(d.ControlPlaneIP.String())
+		if err != nil {
+			log.Fatalf("failed to parse control plane IP into net.IPNet")
+		}
+
+		route = netlink.Route{
 			LinkIndex: d.DefaultIFaceLink.Attrs().Index,
 			Dst:       parsedIPNet,
 			Gw:        currDefaultGateway,
@@ -500,7 +526,7 @@ func (d *WireguardDaemon) ShutdownDevice() {
 	d.Uapi.Close()
 	d.Device.Close()
 
-	// clean up routes - remove server ip from defualt interface
+	// clean up routes - remove server ip from default interface
 	_, parsedIPNet, err := net.ParseCIDR(d.ServerIP.String())
 	if err != nil {
 		log.Fatalf("failed to parse server IP into net.IPNet")
@@ -515,4 +541,18 @@ func (d *WireguardDaemon) ShutdownDevice() {
 		log.Fatalf("failed to delete server IP from default interface: %v", err)
 	}
 
+	// remote control plane ip from default interface
+	_, parsedIPNet, err = net.ParseCIDR(d.ControlPlaneIP.String())
+	if err != nil {
+		log.Fatalf("failed to parse server IP into net.IPNet")
+	}
+
+	route = netlink.Route{
+		LinkIndex: d.DefaultIFaceLink.Attrs().Index,
+		Dst:       parsedIPNet,
+	}
+
+	if err := netlink.RouteDel(&route); err != nil {
+		log.Fatalf("failed to delete control plane IP from default interface: %v", err)
+	}
 }

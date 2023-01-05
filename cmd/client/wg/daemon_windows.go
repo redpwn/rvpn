@@ -149,6 +149,8 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 	}
 
 	family := winipcfg.AddressFamily(windows.AF_INET) // TODO: investigate how we differentiate between AF_INET and AF_INET6 for ipv4 vs ipv6
+
+	// parse out server and control plane ips
 	serverIP, err := netip.ParsePrefix(wgConf.ServerIp + "/32")
 	if err != nil {
 		log.Fatalf("failed to parse server ip: %v", err)
