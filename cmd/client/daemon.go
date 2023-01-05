@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/redpwn/rvpn/cmd/client/jrpc"
 	"github.com/redpwn/rvpn/cmd/client/wg"
@@ -61,6 +62,35 @@ func NewRVPNDaemon() *RVPNDaemon {
 type jrpcHandler struct {
 	activeRVPNDaemon *RVPNDaemon // rVPN daemon for jrpcHandler to control
 	deviceToken      string      // deviceToken for jrpcHandler to AuthN
+}
+
+// heartbeatGenerator keeps sending heartbeats until context is cancelled every interval
+func heartbeatGenerator(ctx context.Context, interval time.Duration, conn *jsonrpc2.Conn) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	// ticker only ticks after interval, manually send a heartbeat first
+	var deviceHeartbeatResponse common.DeviceHeartbeatResponse
+	err := conn.Call(ctx, common.DeviceHeartbeatMethod, common.DeviceHeartbeatRequest{}, &deviceHeartbeatResponse)
+	if err != nil {
+		log.Printf("failed to send device heartbeat: %v", err)
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			// it has reached the interval so send heartbeat
+			err = conn.Call(ctx, common.DeviceHeartbeatMethod, common.DeviceHeartbeatRequest{}, &deviceHeartbeatResponse)
+			if err != nil {
+				log.Printf("failed to send device heartbeat: %v", err)
+			}
+
+			log.Printf("send device heartbeat to control plane\n")
+		case <-ctx.Done():
+			// context has been cancelled
+			return
+		}
+	}
 }
 
 func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonrpc2.Request) {
@@ -212,7 +242,9 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 			Success: true,
 		})
 
-		// TODO: launch goroutine to send heartbeat to keep WS alive
+		// launch goroutine to send heartbeat to keep WS alive
+		// NOTE: context is of the jrpc connection which should be kept alive
+		go heartbeatGenerator(ctx, 30*time.Second, conn)
 	case common.ServeVPNMethod:
 		// NOTE: the serve vpn code path should only be triggered on Linux devices
 		serveVPNHandler(ctx, h, conn, req)
