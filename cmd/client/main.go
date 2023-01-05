@@ -11,6 +11,7 @@ import (
 const (
 	RVPN_CONTROL_PLANE    = "http://rvpn.jimmyli.us"
 	RVPN_CONTROL_PLANE_WS = "ws://rvpn.jimmyli.us"
+	RVPN_VERSION          = "0.0.1"
 )
 
 func main() {
@@ -65,6 +66,8 @@ func main() {
 			} else {
 				StartRVPNDaemon()
 			}
+		case "version":
+			fmt.Println("rVPN version: " + RVPN_VERSION)
 		default:
 			fmt.Println("command not found, run 'rvpn help' for help")
 		}

@@ -13,6 +13,7 @@ Available commands are:
 	serve      - serve as a rVPN target server
 	disconnect - disconnect current rVPN profile
 	daemon     - start the rVPN daemon (windows only)
+	version    - display rVPN version
 
 Use "rvpn help <command>" for more information about a command`
 
