@@ -2,6 +2,10 @@ package wg
 
 import "golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
+const (
+	IpSourceRouteTableBaseIdx = 130
+)
+
 type ClientWgConfig struct {
 	ClientPrivateKey string // client private key
 	ServerPublicKey  string // server public key

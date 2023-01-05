@@ -21,7 +21,7 @@ func assignInterfaceAddr(ifaceName, ipAddressPrefix string) error {
 	}
 
 	// delete existing addresses on the interface
-	addrList, err := netlink.AddrList(wgInterfaceLink, 0)
+	addrList, err := netlink.AddrList(wgInterfaceLink, netlink.FAMILY_ALL)
 	if err != nil {
 		return err
 	}
@@ -88,48 +88,88 @@ func findDefaultInterface() (netlink.Link, net.IP, error) {
 	}
 }
 
-// findOverlappingRoutes finds overlapping routes between current system and peerRoutes ignoring specified interface
-func findOverlappingRoutes(peerRoutes []netlink.Route) ([]netlink.Route, error) {
-	// TODO: pass in current interface to ignore
-	overlappingRoutes := []netlink.Route{}
-
-	linkList, err := netlink.LinkList()
+// enableSourceRouting enables source routing for the default interface
+func (d *WireguardDaemon) enableSourceRouting(sourceRouteIFace netlink.Link, sourceRouteGateway net.IP) error {
+	// attempt to add rule to rvpn table
+	sourceRoutingRules := []*netlink.Rule{}
+	sourceRoutingRoutes := []netlink.Route{}
+	addrList, err := netlink.AddrList(sourceRouteIFace, netlink.FAMILY_V4)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	for _, ifaceLink := range linkList {
-		// get all routes for the interface
-		routeList, err := netlink.RouteList(ifaceLink, unix.AF_INET)
-		if err != nil {
-			return nil, err
-		}
+	if len(addrList) > 0 {
+		// for each ipv4 address we add a source routing rule
+		for i, ifaceAddr := range addrList {
+			// create and add source routing rule
+			sourceRoutingRule := netlink.NewRule()
+			targetTable := IpSourceRouteTableBaseIdx + i
 
-		for _, route := range routeList {
-			// check route with all peer routes
-			for _, peerRoute := range peerRoutes {
-				// compare with all peer routes
-				if peerRoute.Dst != nil && route.Dst != nil {
-					// dst exists on both routes
-					if peerRoute.Dst.IP.Equal(route.Dst.IP) && peerRoute.Dst.Mask.String() == route.Dst.Mask.String() {
-						// ip and mask are the same, these are the same route
-						overlappingRoutes = append(overlappingRoutes, route)
-						break
-					}
-				} else if peerRoute.Dst == nil && route.Dst == nil {
-					// dst does not exist on both routes (this is default gateway route)
-					overlappingRoutes = append(overlappingRoutes, route)
-					break
-				} else if route.Dst == nil {
-					// default gateway route, check if peerRoute is "0.0.0.0/0"
-					if peerRoute.Dst.IP.Equal(net.ParseIP("0.0.0.0")) {
-						overlappingRoutes = append(overlappingRoutes, route)
-						break
-					}
-				}
+			sourceRoutingRule.Priority = 1
+			sourceRoutingRule.Src = &net.IPNet{
+				IP:   ifaceAddr.IP,
+				Mask: net.IPv4Mask(255, 255, 255, 255),
 			}
+			// each address needs its own table idx
+			sourceRoutingRule.Table = targetTable
+			sourceRoutingRules = append(sourceRoutingRules, sourceRoutingRule)
+
+			// create and add routing rule for source routing
+			_, parsedDestIp, err := net.ParseCIDR("0.0.0.0/0")
+			if err != nil {
+				return err
+			}
+
+			route := netlink.Route{
+				LinkIndex: sourceRouteIFace.Attrs().Index,
+				Dst:       parsedDestIp,
+				Gw:        sourceRouteGateway,
+				Table:     targetTable,
+				Priority:  50,
+			}
+			sourceRoutingRoutes = append(sourceRoutingRoutes, route)
 		}
 	}
 
-	return overlappingRoutes, nil
+	// add all source routing rules
+	for _, sourceRoutingRule := range sourceRoutingRules {
+		// add source routing rule to table
+		if err := netlink.RuleAdd(sourceRoutingRule); err != nil {
+			return err
+		}
+	}
+
+	d.appendedSrcRules = sourceRoutingRules
+
+	// add all source routing routes
+	for _, sourceRoutingRoute := range sourceRoutingRoutes {
+		// add source route
+		if err := netlink.RouteAdd(&sourceRoutingRoute); err != nil {
+			return err
+		}
+	}
+
+	d.appendedSrcRoutes = sourceRoutingRoutes
+
+	return nil
+}
+
+// stopSourceRouting stops source routing by deleting added rules
+func (d *WireguardDaemon) stopSourceRouting() error {
+	// remove source routing routes
+	for _, sourceRoutingRoute := range d.appendedSrcRoutes {
+		// delete source route
+		if err := netlink.RouteDel(&sourceRoutingRoute); err != nil {
+			return err
+		}
+	}
+
+	// remote source routing rules
+	for _, sourceRoutingRule := range d.appendedSrcRules {
+		// delete source rule
+		if err := netlink.RuleDel(sourceRoutingRule); err != nil {
+			return err
+		}
+	}
+	return nil
 }
