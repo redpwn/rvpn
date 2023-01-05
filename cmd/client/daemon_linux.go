@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/redpwn/rvpn/cmd/client/jrpc"
 	"github.com/redpwn/rvpn/cmd/client/wg"
@@ -116,7 +117,9 @@ func serveVPNHandler(ctx context.Context, h jrpcHandler, conn *jsonrpc2.Conn, re
 		Success: true,
 	})
 
-	// TODO: launch goroutine to send heartbeat to keep WS alive
+	// launch goroutine to send heartbeat to keep WS alive
+	// NOTE: context is of the jrpc connection which should be kept alive
+	go heartbeatGenerator(ctx, 30*time.Second, conn)
 }
 
 // appendVPNPeersHandler is responsible for append peers to the Wireguard config

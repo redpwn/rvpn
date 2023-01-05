@@ -93,6 +93,7 @@ func getNextClientIp(ctx context.Context, db *RVPNDatabase, target string) (stri
 func blockUntilStale(ctx context.Context, heartbeatChan chan int, staleTimeout time.Duration) {
 	lastHeartbeat := time.Now()
 	ticker := time.NewTicker(1 * time.Minute) // check for staleness every minute
+	defer ticker.Stop()
 
 	for {
 		select {
