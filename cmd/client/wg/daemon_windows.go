@@ -318,7 +318,7 @@ func (d *WireguardDaemon) Disconnect() {
 	for _, prevRoute := range d.prevRoutes {
 		err = d.Adapter.LUID.DeleteRoute(prevRoute.Destination, prevRoute.NextHop)
 		if err != nil {
-			log.Fatalf("failed to delete route: %v", err)
+			log.Printf("failed to delete route: %v", err)
 		}
 	}
 

@@ -6,10 +6,6 @@ import (
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 )
 
-func dedupAddresses() {
-
-}
-
 // printDevice prints information about a wireguard device
 func printDevice(d *wgtypes.Device) {
 	const f = `interface: %s (%s)

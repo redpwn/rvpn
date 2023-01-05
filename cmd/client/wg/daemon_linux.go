@@ -30,8 +30,10 @@ type WireguardDaemon struct {
 	InterfaceName    string
 
 	// internal variables used for managing the daemon
-	stashedRoutes []netlink.Route // routes stashed outside of rvpn
-	vpnServerMode bool
+	appendedRoutes    []netlink.Route // routes stashed outside of rvpn
+	appendedSrcRules  []*netlink.Rule // rules for source routing
+	appendedSrcRoutes []netlink.Route // routes for source routing
+	vpnServerMode     bool
 }
 
 // NewWireguardDaemon returns a new WireguardDaemon NOTE: this is uninitialized
@@ -178,7 +180,7 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 		}
 
 		if err := netlink.RouteAdd(&route); err != nil {
-			log.Fatalf("failed to add server IP to default interface: %v", err)
+			log.Fatalf("failed to add control plane IP to default interface: %v", err)
 		}
 	} else {
 		// default interface has already been set
@@ -188,7 +190,8 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 		}
 	}
 
-	// set routes to be the de-duped peer allowed IPs
+	// set routes to be the de-duped peer allowed IPs (routable subnets)
+	// TODO: enable this to be overridden for client via cli flag
 	peerAllowedIP := netip.MustParsePrefix("104.18.114.97/32") // TODO: this needs to actually be the de-duped peer allowed IPs
 	_, parsedPeerAllowedIP, err := net.ParseCIDR(peerAllowedIP.String())
 	if err != nil {
@@ -211,26 +214,13 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 		}
 	}
 
-	// re-apply routing rules from stashed overlapping routes
-	for _, stashedRoute := range d.stashedRoutes {
-		if err := netlink.RouteAdd(&stashedRoute); err != nil {
-			log.Fatalf("failed to add back stashed route: %v", err)
-		}
-	}
-
-	// stash routes and delete which overlap exactly with peer allowed ips
-	overlappingRoutes, err := findOverlappingRoutes(routes)
+	// enable routing by source ip for default interface
+	// NOTE: this is so reply traffic to defualt interface exits directly through default interface
+	// even if there is a new default route which the traffic should go through
+	err = d.enableSourceRouting(currDefaultIFace, currDefaultGateway)
 	if err != nil {
-		log.Fatalf("failed to find overlapping routes between current routes and peer routes")
+		log.Fatalf("something went wrong when enabling source routing: %v", err)
 	}
-
-	for _, overlappingRoute := range overlappingRoutes {
-		if err := netlink.RouteDel(&overlappingRoute); err != nil {
-			log.Fatalf("failed to delete overlapping route: %v", err)
-		}
-	}
-
-	d.stashedRoutes = overlappingRoutes
 
 	// add peer routes to the rvpn wireguard interface
 	for _, newRoute := range routes {
@@ -238,6 +228,8 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 			log.Fatalf("failed to add new route to rvpn wireguard interface: %v", err)
 		}
 	}
+
+	d.appendedRoutes = routes
 
 	// set ip addresses on the wireguard network interface
 	interfaceAddressPrefix := wgConf.ClientIp + wgConf.ClientCidr
@@ -292,8 +284,8 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 			PersistentKeepaliveInterval: &ka,
 			ReplaceAllowedIPs:           true,
 			AllowedIPs: []net.IPNet{{
-				IP:   net.ParseIP("104.18.114.97"),     // "0.0.0.0"
-				Mask: net.IPv4Mask(255, 255, 255, 255), // (0,0,0,0)
+				IP:   net.ParseIP("0.0.0.0"),
+				Mask: net.IPv4Mask(0, 0, 0, 0),
 			}},
 		}},
 	}
@@ -515,7 +507,15 @@ func (d *WireguardDaemon) Disconnect() {
 		}
 	}
 
-	// TODO: cleanup any routing rules
+	// cleanup any routing rules
+	for _, appendedRoute := range d.appendedRoutes {
+		if err := netlink.RouteDel(&appendedRoute); err != nil {
+			log.Printf("failed to delete appended route: %v", err)
+		}
+	}
+
+	// cleanup source routing rules and routes
+	d.stopSourceRouting()
 }
 
 // ShutdownDevice shuts down the wireguard device
@@ -555,4 +555,14 @@ func (d *WireguardDaemon) ShutdownDevice() {
 	if err := netlink.RouteDel(&route); err != nil {
 		log.Fatalf("failed to delete control plane IP from default interface: %v", err)
 	}
+
+	// cleanup any appended routing rules
+	for _, appendedRoute := range d.appendedRoutes {
+		if err := netlink.RouteDel(&appendedRoute); err != nil {
+			log.Printf("failed to delete appended route: %v", err)
+		}
+	}
+
+	// cleanup source routing rules and routes
+	d.stopSourceRouting()
 }
