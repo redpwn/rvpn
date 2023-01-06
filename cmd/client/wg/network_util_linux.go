@@ -4,11 +4,13 @@ package wg
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math"
 	"net"
 	"os"
 
+	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -171,5 +173,51 @@ func (d *WireguardDaemon) stopSourceRouting() error {
 			return err
 		}
 	}
+	return nil
+}
+
+// enableForwarding enables ip forwarding for the specific wireguard daemon
+func (d *WireguardDaemon) enableForwarding() error {
+	iptableMan, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to create iptables interface: %v", err)
+		return errors.New(errMsg)
+	}
+
+	// accept and forward from rvpn wireguard interface
+	err = iptableMan.Append("filter", "FORWARD", "-i", d.InterfaceName, "-j", "ACCEPT")
+	if err != nil {
+		return errors.New("iptables failed to accept from rvpn network interface")
+	}
+
+	// enable masquerading on defualt interface output
+	err = iptableMan.Append("nat", "POSTROUTING", "-o", d.DefaultIFaceLink.Attrs().Name, "-j", "MASQUERADE")
+	if err != nil {
+		return errors.New("iptables failed to masquerade onto default interface")
+	}
+
+	return nil
+}
+
+// disableForwarding disables ip forwarding for the specific wireguard daemon
+func (d *WireguardDaemon) disableForwarding() error {
+	iptableMan, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
+	if err != nil {
+		errMsg := fmt.Sprintf("failed to create iptables interface: %v", err)
+		return errors.New(errMsg)
+	}
+
+	// delete accept and forward from rvpn wireguard interface
+	err = iptableMan.Delete("filter", "FORWARD", "-i", d.InterfaceName, "-j", "ACCEPT")
+	if err != nil {
+		return errors.New("iptables failed to delete accept from rvpn network interface")
+	}
+
+	// delete masquerading on defualt interface output
+	err = iptableMan.Delete("nat", "POSTROUTING", "-o", d.DefaultIFaceLink.Attrs().Name, "-j", "MASQUERADE")
+	if err != nil {
+		return errors.New("iptables failed to delete masquerade onto default interface")
+	}
+
 	return nil
 }
