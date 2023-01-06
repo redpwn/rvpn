@@ -10,7 +10,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/coreos/go-iptables/iptables"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/conn"
@@ -190,18 +189,6 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 		}
 	}
 
-	// set routes to be the de-duped peer allowed IPs (routable subnets)
-	// TODO: enable this to be overridden for client via cli flag
-	peerAllowedIP := netip.MustParsePrefix("104.18.114.97/32") // TODO: this needs to actually be the de-duped peer allowed IPs
-	_, parsedPeerAllowedIP, err := net.ParseCIDR(peerAllowedIP.String())
-	if err != nil {
-		log.Fatalf("failed to parse peer allowed IP into net.IPNet")
-	}
-	routes := []netlink.Route{{
-		LinkIndex: interfaceLink.Attrs().Index,
-		Dst:       parsedPeerAllowedIP,
-	}}
-
 	// flush routes on the rvpn wireguard interface
 	interfaceRoutes, err := netlink.RouteList(interfaceLink, unix.AF_INET)
 	if err != nil {
@@ -221,15 +208,6 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 	if err != nil {
 		log.Fatalf("something went wrong when enabling source routing: %v", err)
 	}
-
-	// add peer routes to the rvpn wireguard interface
-	for _, newRoute := range routes {
-		if err := netlink.RouteAdd(&newRoute); err != nil {
-			log.Fatalf("failed to add new route to rvpn wireguard interface: %v", err)
-		}
-	}
-
-	d.appendedRoutes = routes
 
 	// set ip addresses on the wireguard network interface
 	interfaceAddressPrefix := wgConf.ClientIp + wgConf.ClientCidr
@@ -298,6 +276,30 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 		}
 	}
 
+	// now that wireguard tunnel is fully up, we add the routes to the system to redirect traffic there
+
+	// set routes to be the de-duped peer allowed IPs (routable subnets)
+	// TODO: enable this to be overridden for client via cli flag
+	// TODO: this needs to actually be the de-duped peer allowed IPs
+	_, parsedPeerAllowedIP, err := net.ParseCIDR("0.0.0.0/1") // we create a slightly more specific than default route
+	if err != nil {
+		log.Fatalf("failed to parse peer allowed IP into net.IPNet")
+	}
+	routes := []netlink.Route{{
+		LinkIndex: interfaceLink.Attrs().Index,
+		Dst:       parsedPeerAllowedIP,
+	}}
+
+	// add peer routes to the rvpn wireguard interface
+	for _, newRoute := range routes {
+		if err := netlink.RouteAdd(&newRoute); err != nil {
+			log.Fatalf("failed to add new route to rvpn wireguard interface: %v", err)
+		}
+	}
+
+	d.appendedRoutes = routes
+
+	// tell the daemon that we are in client mode
 	d.vpnServerMode = false
 }
 
@@ -409,21 +411,9 @@ func (d *WireguardDaemon) UpdateServeConf(wgConf ServeWgConfig) {
 	}
 
 	// configure forwarding rules (via iptables for now but consider netfilter)
-	iptables, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
+	err = d.enableForwarding()
 	if err != nil {
-		log.Fatalf("failed to create iptables interface: %v", err)
-	}
-
-	// accept and forward from rvpn wireguard interface
-	err = iptables.Append("filter", "FORWARD", "-i", d.InterfaceName, "-j", "ACCEPT")
-	if err != nil {
-		log.Printf("iptables failed to accept from rvpn network interface")
-	}
-
-	// enable masquerading on defualt interface output
-	err = iptables.Append("nat", "POSTROUTING", "-o", d.DefaultIFaceLink.Attrs().Name, "-j", "MASQUERADE")
-	if err != nil {
-		log.Printf("iptables failed to masquerade onto default interface")
+		log.Printf("failed to enable forwarding: %v", err)
 	}
 
 	d.vpnServerMode = true
@@ -489,21 +479,11 @@ func (d *WireguardDaemon) Disconnect() {
 		log.Fatalf("failed to shut down device")
 	}
 
-	// if vpnServerMode is true, delete iptables rules
+	// if vpnServerMode is true, delete iptables rules for forwarding
 	if d.vpnServerMode {
-		iptables, err := iptables.NewWithProtocol(iptables.ProtocolIPv4)
+		err = d.disableForwarding()
 		if err != nil {
-			log.Fatalf("failed to create iptables interface: %v", err)
-		}
-
-		err = iptables.Delete("filter", "FORWARD", "-i", d.InterfaceName, "-j", "ACCEPT")
-		if err != nil {
-			log.Printf("iptables failed to delete accept rule on rvpn network interface")
-		}
-
-		err = iptables.Delete("nat", "POSTROUTING", "-o", d.DefaultIFaceLink.Attrs().Name, "-j", "MASQUERADE")
-		if err != nil {
-			log.Printf("iptables failed to delete masquerade rule on default interface")
+			log.Printf("failed to disable forwarding: %v", err)
 		}
 	}
 
@@ -513,6 +493,8 @@ func (d *WireguardDaemon) Disconnect() {
 			log.Printf("failed to delete appended route: %v", err)
 		}
 	}
+
+	d.appendedRoutes = []netlink.Route{}
 
 	// cleanup source routing rules and routes
 	d.stopSourceRouting()
@@ -554,6 +536,14 @@ func (d *WireguardDaemon) ShutdownDevice() {
 
 	if err := netlink.RouteDel(&route); err != nil {
 		log.Fatalf("failed to delete control plane IP from default interface: %v", err)
+	}
+
+	// if vpnServerMode is true, delete iptables rules for forwarding
+	if d.vpnServerMode {
+		err = d.disableForwarding()
+		if err != nil {
+			log.Printf("failed to disable forwarding: %v", err)
+		}
 	}
 
 	// cleanup any appended routing rules
