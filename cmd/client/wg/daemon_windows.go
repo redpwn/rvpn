@@ -42,7 +42,7 @@ func NewWireguardDaemon() *WireguardDaemon {
 }
 
 // StartDevice starts the wireguard networking interface used by rVPN
-func (d *WireguardDaemon) StartDevice(errs chan error) {
+func (d *WireguardDaemon) StartDevice(errs chan error) error {
 	// use wireguard to create a new device
 	interfaceName := "rvpn0"
 	family := winipcfg.AddressFamily(windows.AF_INET) // TODO: investigate how we differentiate between AF_INET and AF_INET6 for ipv4 vs ipv6
@@ -51,7 +51,7 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 	// open TUN device
 	tun, err := tun.CreateTUN(interfaceName, deviceMTU)
 	if err != nil {
-		log.Fatalf("failed to create TUN device: %v", err)
+		return fmt.Errorf("failed to create TUN device: %w", err)
 	}
 
 	// this interface name is the friendly name
@@ -65,7 +65,7 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 	// get the adapter using the friendly interfaceName
 	out, err := winipcfg.GetAdaptersAddresses(windows.AF_UNSPEC, winipcfg.GAAFlagDefault)
 	if err != nil {
-		log.Fatalf("failed to get adapter addresses: %v", err)
+		return fmt.Errorf("failed to get adapter addresses: %w", err)
 	}
 
 	found := false
@@ -78,13 +78,13 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 	}
 
 	if !found {
-		log.Fatalf("failed to get adapter for TUN device")
+		return fmt.Errorf("failed to get adapter for TUN device")
 	}
 
 	// set MTU on the adapter because wireguard-go createTUN() does not respect MTU
 	adapterInteface, err := d.Adapter.LUID.IPInterface(family)
 	if err != nil {
-		log.Fatalf("failed to get adapter interface: %v", err)
+		return fmt.Errorf("failed to get adapter interface: %v", err)
 	}
 
 	adapterInteface.NLMTU = uint32(deviceMTU)
@@ -107,16 +107,14 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 
 	err = device.Up()
 	if err != nil {
-		log.Fatalf("failed to bring up device: %v", err)
-		os.Exit(2)
+		return fmt.Errorf("failed to bring up device: %w", err)
 	}
 
 	log.Println("wireguard network interface started")
 
 	uapi, err := ipc.UAPIListen(interfaceName)
 	if err != nil {
-		logger.Errorf("failed to listen on uapi socket: %w", err)
-		os.Exit(2)
+		return fmt.Errorf("failed to listen on uapi socket: %w", err)
 	}
 
 	// goroutine to listen and accept userspace api connections
@@ -136,6 +134,8 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 	d.Device = device
 	d.Uapi = uapi
 	d.InterfaceName = interfaceName
+
+	return nil
 }
 
 // UpdateConf updates the configuration of a WireguardDaemon with the provided config

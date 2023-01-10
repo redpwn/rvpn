@@ -51,7 +51,7 @@ func main() {
 			if profile := flag.Arg(1); profile != "" {
 				EnsureDaemonStarted()
 				ClientConnectProfile(profile, clientOptions{
-					subnets: *subnets,
+					Subnets: *subnets,
 				})
 			} else {
 				fmt.Println("missing required profile, rvpn connect [profile]")
