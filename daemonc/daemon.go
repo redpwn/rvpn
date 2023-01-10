@@ -1,4 +1,4 @@
-package main
+package daemonc
 
 import (
 	"context"
@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/redpwn/rvpn/cmd/client/jrpc"
-	"github.com/redpwn/rvpn/cmd/client/wg"
 	"github.com/redpwn/rvpn/common"
+	"github.com/redpwn/rvpn/daemonc/jrpc"
+	"github.com/redpwn/rvpn/daemonc/wg"
 	"github.com/sourcegraph/jsonrpc2"
 	"nhooyr.io/websocket"
 )
@@ -32,9 +32,10 @@ const (
 )
 
 type ConnectRequest struct {
-	Profile     string
-	DeviceToken string
-	Opts        clientOptions
+	Profile        string
+	DeviceToken    string
+	ControlPlaneWS string
+	Opts           common.ClientOptions
 }
 
 type ServeRequest struct {
@@ -49,7 +50,7 @@ type RVPNDaemon struct {
 	activeProfile        string
 	jrpcConn             *jsonrpc2.Conn
 	jrpcCtxCancel        context.CancelFunc // cancels the context for the jrpc ctx
-	opts                 clientOptions
+	opts                 common.ClientOptions
 
 	// internal variables used for underlying control
 	wireguardDaemon *wg.WireguardDaemon
@@ -133,7 +134,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		// return client information to rVPN control plane
 
 		// get public key from rVPN state
-		rVPNState, err := GetRVpnState()
+		rVPNState, err := common.GetRVpnState()
 		if err != nil {
 			log.Printf("failed to get rVPN state: %v", err)
 			conn.Reply(ctx, req.ID, common.GetClientInformationResponse{
@@ -154,7 +155,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 			rVPNState.PrivateKey = privateKey
 			rVPNState.PublicKey = publicKey
 
-			err = SetRVpnState(rVPNState)
+			err = common.SetRVpnState(rVPNState)
 			if err != nil {
 				log.Printf("failed to save rVPN state: %v", err)
 				conn.Reply(ctx, req.ID, common.GetClientInformationResponse{
@@ -173,7 +174,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		// return serve information to rVPN control plane
 
 		// get public key from rVPN state
-		rVPNState, err := GetRVpnState()
+		rVPNState, err := common.GetRVpnState()
 		if err != nil {
 			log.Printf("failed to get rVPN state: %v", err)
 			conn.Reply(ctx, req.ID, common.GetServeInformationResponse{
@@ -194,7 +195,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 			rVPNState.PrivateKey = privateKey
 			rVPNState.PublicKey = publicKey
 
-			err = SetRVpnState(rVPNState)
+			err = common.SetRVpnState(rVPNState)
 			if err != nil {
 				log.Printf("failed to save rVPN state: %v", err)
 				conn.Reply(ctx, req.ID, common.GetServeInformationResponse{
@@ -214,7 +215,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		// connect to server with information provided from rVPN control plane
 
 		// get pubkey and privkey from rVPN state
-		rVPNState, err := GetRVpnState()
+		rVPNState, err := common.GetRVpnState()
 		if err != nil {
 			log.Printf("failed to get rVPN state: %v", err)
 			conn.Reply(ctx, req.ID, common.ConnectServerResponse{
@@ -311,7 +312,7 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 		Transport: customTransport,
 	}
 
-	websocketURL := RVPN_CONTROL_PLANE_WS + "/api/v1/target/" + args.Profile + "/connect"
+	websocketURL := args.ControlPlaneWS + "/api/v1/target/" + args.Profile + "/connect"
 	conn, _, err := websocket.Dial(ctx, websocketURL, &websocket.DialOptions{
 		HTTPClient: &customHttpClient,
 	})
