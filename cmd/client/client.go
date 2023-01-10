@@ -25,7 +25,7 @@ type registerDeviceResponse struct {
 
 // clientOptions holds the options for the client
 type clientOptions struct {
-	subnets []string // subnets to connect to which overrides instructions from server
+	Subnets []string // subnets to connect to which overrides instructions from server
 }
 
 // getControlPanelAuthToken gets the control panel auth token from state
