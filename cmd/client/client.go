@@ -23,6 +23,11 @@ type registerDeviceResponse struct {
 	DeviceToken string `json:"deviceToken,omitempty"`
 }
 
+// clientOptions holds the options for the client
+type clientOptions struct {
+	subnets []string // subnets to connect to which overrides instructions from server
+}
+
 // getControlPanelAuthToken gets the control panel auth token from state
 func getControlPanelAuthToken() string {
 	rVPNState, err := GetRVpnState()
@@ -53,7 +58,7 @@ func ControlPanelAuthLogin(token string) {
 }
 
 // ClientConnectProfile instructs the rVPN daemon to connect to a target via rpc
-func ClientConnectProfile(profile string) {
+func ClientConnectProfile(profile string, opts clientOptions) {
 	// connect to rVPN daemon
 	client, err := rpc.Dial("tcp", "127.0.0.1:52370")
 	if err != nil {
@@ -130,6 +135,7 @@ func ClientConnectProfile(profile string) {
 	connectionRequest := ConnectRequest{
 		Profile:     profile,
 		DeviceToken: deviceRegistrationResp.DeviceToken,
+		Opts:        opts,
 	}
 
 	var connectionSuccess bool
