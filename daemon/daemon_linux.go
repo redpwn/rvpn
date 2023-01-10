@@ -1,6 +1,6 @@
 //go:build linux
 
-package daemonc
+package daemon
 
 import (
 	"context"
@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redpwn/rvpn/cmd/client/jrpc"
-	"github.com/redpwn/rvpn/cmd/client/wg"
 	"github.com/redpwn/rvpn/common"
+	"github.com/redpwn/rvpn/daemon/jrpc"
+	"github.com/redpwn/rvpn/daemon/wg"
 	"github.com/sourcegraph/jsonrpc2"
 	"nhooyr.io/websocket"
 )

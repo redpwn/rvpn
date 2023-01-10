@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/redpwn/rvpn/daemonc"
+	"github.com/redpwn/rvpn/daemon"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/eventlog"
@@ -115,8 +115,8 @@ func (m *rVPNService) Execute(args []string, r <-chan svc.ChangeRequest, changes
 	changes <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
 	// start rVPN daemon, daemon is blocking so we start it in its own thread
-	daemon := daemonc.NewRVPNDaemon()
-	go daemon.Start()
+	newDaemon := daemon.NewRVPNDaemon()
+	go newDaemon.Start()
 
 loop:
 	for c := range r {
@@ -129,7 +129,7 @@ loop:
 		case svc.Stop, svc.Shutdown:
 			elog.Info(1, "received shutdown command")
 
-			daemon.Stop()
+			newDaemon.Stop()
 			break loop
 		case svc.Pause:
 			changes <- svc.Status{State: svc.Paused, Accepts: cmdsAccepted}

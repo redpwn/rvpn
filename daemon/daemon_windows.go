@@ -1,6 +1,6 @@
 //go:build windows
 
-package daemonc
+package daemon
 
 import (
 	"context"
