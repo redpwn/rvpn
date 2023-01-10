@@ -15,6 +15,10 @@ const (
 )
 
 func main() {
+	// define flags
+	subnets := flag.StringSlice("subnets", []string{"0.0.0.0/0"}, "comma separated list of subnets to serve")
+
+	// begin main cli parsing
 	flag.Parse()
 
 	err := InitRVPNState()
@@ -26,7 +30,13 @@ func main() {
 	if command := flag.Arg(0); command != "" {
 		switch command {
 		case "help":
-			displayHelp()
+			if helpCommand := flag.Arg(1); helpCommand != "" {
+				// specific help command was asked
+				displayCmdHelp(helpCommand)
+			} else {
+				// general help
+				displayHelp()
+			}
 		case "login":
 			if token := flag.Arg(1); token == "" {
 				// no token was provided
@@ -40,7 +50,9 @@ func main() {
 		case "connect":
 			if profile := flag.Arg(1); profile != "" {
 				EnsureDaemonStarted()
-				ClientConnectProfile(profile)
+				ClientConnectProfile(profile, clientOptions{
+					subnets: *subnets,
+				})
 			} else {
 				fmt.Println("missing required profile, rvpn connect [profile]")
 			}

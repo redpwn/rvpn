@@ -41,7 +41,7 @@ func NewWireguardDaemon() *WireguardDaemon {
 }
 
 // StartDevice starts the wireguard networking interface used by rVPN
-func (d *WireguardDaemon) StartDevice(errs chan error) {
+func (d *WireguardDaemon) StartDevice(errs chan error) error {
 	// use wireguard to create a new device
 	interfaceName := "rvpn0"
 	deviceMTU := 1420
@@ -49,7 +49,7 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 	// open TUN device
 	tun, err := tun.CreateTUN(interfaceName, deviceMTU)
 	if err != nil {
-		log.Fatalf("failed to create TUN device: %v", err)
+		return fmt.Errorf("failed to create TUN device: %w", err)
 	}
 
 	// begin initialization of wireguard on top of TUN device
@@ -67,22 +67,19 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 
 	err = device.Up()
 	if err != nil {
-		log.Fatalf("failed to bring up device: %v", err)
-		os.Exit(2)
+		return fmt.Errorf("failed to bring up device: %w", err)
 	}
 
 	log.Println("wireguard network interface started")
 
 	tunSock, err := ipc.UAPIOpen(interfaceName)
 	if err != nil {
-		logger.Errorf("failed to open uapi socket: %w", err)
-		os.Exit(2)
+		return fmt.Errorf("failed to open uapi socket: %w", err)
 	}
 
 	uapi, err := ipc.UAPIListen(interfaceName, tunSock)
 	if err != nil {
-		logger.Errorf("failed to listen on uapi socket: %w", err)
-		os.Exit(2)
+		return fmt.Errorf("failed to listen on uapi socket: %w", err)
 	}
 
 	// goroutine to listen and accept userspace api connections
@@ -102,6 +99,8 @@ func (d *WireguardDaemon) StartDevice(errs chan error) {
 	d.Device = device
 	d.Uapi = uapi
 	d.InterfaceName = interfaceName
+
+	return nil
 }
 
 // UpdateClientConf updates the configuration of a WireguardDaemon with the provided config for rVPN clients

@@ -34,6 +34,7 @@ const (
 type ConnectRequest struct {
 	Profile     string
 	DeviceToken string
+	Opts        clientOptions
 }
 
 type ServeRequest struct {
@@ -48,6 +49,7 @@ type RVPNDaemon struct {
 	activeProfile        string
 	jrpcConn             *jsonrpc2.Conn
 	jrpcCtxCancel        context.CancelFunc // cancels the context for the jrpc ctx
+	opts                 clientOptions
 
 	// internal variables used for underlying control
 	wireguardDaemon *wg.WireguardDaemon
@@ -362,7 +364,10 @@ func (r *RVPNDaemon) Start() {
 	term := make(chan os.Signal, 1)
 
 	// start the wireguard interface device
-	wireguardDaemon.StartDevice(errs)
+	err := wireguardDaemon.StartDevice(errs)
+	if err != nil {
+		log.Fatalf("failed to start daemon: %v", err)
+	}
 
 	// start RPC server; TODO: investigate if this is a good pattern
 	rpc.Register(r)
