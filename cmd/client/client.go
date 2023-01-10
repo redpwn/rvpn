@@ -10,6 +10,8 @@ import (
 	"os"
 
 	"github.com/denisbrodbeck/machineid"
+	"github.com/redpwn/rvpn/common"
+	"github.com/redpwn/rvpn/daemonc"
 )
 
 // client.go holds functions which interact (connect, disconnect, status) with the client daemon via rpc
@@ -21,11 +23,6 @@ type registerDeviceResponse struct {
 
 	// device token which is signed and authenticates the device
 	DeviceToken string `json:"deviceToken,omitempty"`
-}
-
-// clientOptions holds the options for the client
-type clientOptions struct {
-	Subnets []string // subnets to connect to which overrides instructions from server
 }
 
 // getControlPanelAuthToken gets the control panel auth token from state
@@ -58,7 +55,7 @@ func ControlPanelAuthLogin(token string) {
 }
 
 // ClientConnectProfile instructs the rVPN daemon to connect to a target via rpc
-func ClientConnectProfile(profile string, opts clientOptions) {
+func ClientConnectProfile(profile string, opts common.ClientOptions) {
 	// connect to rVPN daemon
 	client, err := rpc.Dial("tcp", "127.0.0.1:52370")
 	if err != nil {
@@ -67,14 +64,14 @@ func ClientConnectProfile(profile string, opts clientOptions) {
 	}
 
 	// ensure device is not already connected
-	var connectionStatus RVPNStatus
+	var connectionStatus daemonc.RVPNStatus
 	err = client.Call("RVPNDaemon.Status", "", &connectionStatus)
 	if err != nil {
 		fmt.Println("failed to connect rVPN target", err)
 		os.Exit(1)
 	}
 
-	if connectionStatus != StatusDisconnected {
+	if connectionStatus != daemonc.StatusDisconnected {
 		// device is already connected, early exit
 		fmt.Println("device is already connected to a rVPN target, disconnect and try again")
 		os.Exit(1)
@@ -132,10 +129,11 @@ func ClientConnectProfile(profile string, opts clientOptions) {
 	}
 
 	// start connection by issuing request to rVPN daemon
-	connectionRequest := ConnectRequest{
-		Profile:     profile,
-		DeviceToken: deviceRegistrationResp.DeviceToken,
-		Opts:        opts,
+	connectionRequest := daemonc.ConnectRequest{
+		Profile:        profile,
+		DeviceToken:    deviceRegistrationResp.DeviceToken,
+		ControlPlaneWS: RVPN_CONTROL_PLANE_WS,
+		Opts:           opts,
 	}
 
 	var connectionSuccess bool
@@ -157,14 +155,14 @@ func ClientDisconnectProfile() {
 	}
 
 	// ensure device is connected
-	var connectionStatus RVPNStatus
+	var connectionStatus daemonc.RVPNStatus
 	err = client.Call("RVPNDaemon.Status", "", &connectionStatus)
 	if err != nil {
 		fmt.Println("failed to connect rVPN target", err)
 		os.Exit(1)
 	}
 
-	if connectionStatus == StatusDisconnected {
+	if connectionStatus == daemonc.StatusDisconnected {
 		// device is already connected, early exit
 		fmt.Println("device is not connected to a rVPN target, disconnect and try again")
 		os.Exit(1)
@@ -188,18 +186,18 @@ func ClientStatus() {
 		os.Exit(1)
 	}
 
-	var rVPNState RVPNStatus
+	var rVPNState daemonc.RVPNStatus
 	err = client.Call("RVPNDaemon.Status", "", &rVPNState)
 	if err != nil {
 		fmt.Println("failed to get status from rVPN daemon", err)
 		os.Exit(1)
 	}
 
-	if rVPNState == StatusConnected {
+	if rVPNState == daemonc.StatusConnected {
 		fmt.Println("rVPN is currently connected to a profile")
-	} else if rVPNState == StatusDisconnected {
+	} else if rVPNState == daemonc.StatusDisconnected {
 		fmt.Println("rVPN is not currently connected to a profile")
-	} else if rVPNState == StatusServing {
+	} else if rVPNState == daemonc.StatusServing {
 		fmt.Println("rVPN is currently serving as a target VPN server")
 	} else {
 		fmt.Println("something went wrong, rVPN status is unrecognized")
