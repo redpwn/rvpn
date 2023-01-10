@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/redpwn/rvpn/common"
-	"github.com/redpwn/rvpn/daemonc"
+	"github.com/redpwn/rvpn/daemon"
 	flag "github.com/spf13/pflag"
 )
 
@@ -23,7 +23,7 @@ func main() {
 	// begin main cli parsing
 	flag.Parse()
 
-	err := InitRVPNState()
+	err := common.InitRVPNState()
 	if err != nil {
 		log.Printf("failed to initialize rVPN state: %v", err)
 		os.Exit(1)
@@ -51,7 +51,7 @@ func main() {
 			fmt.Println("list")
 		case "connect":
 			if profile := flag.Arg(1); profile != "" {
-				daemonc.EnsureDaemonStarted()
+				daemon.EnsureDaemonStarted()
 				ClientConnectProfile(profile, common.ClientOptions{
 					Subnets: *subnets,
 				})
@@ -60,23 +60,23 @@ func main() {
 			}
 		case "serve":
 			if profile := flag.Arg(1); profile != "" {
-				daemonc.EnsureDaemonStarted()
+				daemon.EnsureDaemonStarted()
 				ClientServeProfile(profile)
 			} else {
 				fmt.Println("missing required profile, rvpn serve [profile]")
 			}
 		case "disconnect":
-			daemonc.EnsureDaemonStarted()
+			daemon.EnsureDaemonStarted()
 			ClientDisconnectProfile()
 		case "status":
-			daemonc.EnsureDaemonStarted()
+			daemon.EnsureDaemonStarted()
 			ClientStatus()
 		case "daemon":
 			// start the rVPN daemon which is different based on user operating system
 			debug := true
 			if debug {
-				daemon := daemonc.NewRVPNDaemon()
-				daemon.Start()
+				newDaemon := daemon.NewRVPNDaemon()
+				newDaemon.Start()
 			} else {
 				StartRVPNDaemon()
 			}

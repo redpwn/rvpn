@@ -11,23 +11,14 @@ import (
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/redpwn/rvpn/common"
-	"github.com/redpwn/rvpn/daemonc"
+	"github.com/redpwn/rvpn/daemon"
 )
 
 // client.go holds functions which interact (connect, disconnect, status) with the client daemon via rpc
 
-// registerDeviceResponse holds the response format for device registration
-type registerDeviceResponse struct {
-	// device id which has been assigned to the device
-	DeviceId string `json:"deviceId,omitempty"`
-
-	// device token which is signed and authenticates the device
-	DeviceToken string `json:"deviceToken,omitempty"`
-}
-
 // getControlPanelAuthToken gets the control panel auth token from state
 func getControlPanelAuthToken() string {
-	rVPNState, err := GetRVpnState()
+	rVPNState, err := common.GetRVpnState()
 	if err != nil {
 		fmt.Printf("failed to get rVPN state: %v\n", err)
 		os.Exit(1)
@@ -38,14 +29,14 @@ func getControlPanelAuthToken() string {
 
 // ControlPanelAuthLogin saves the given token as the login token
 func ControlPanelAuthLogin(token string) {
-	rVPNState, err := GetRVpnState()
+	rVPNState, err := common.GetRVpnState()
 	if err != nil {
 		fmt.Printf("failed to get rVPN state: %v\n", err)
 		os.Exit(1)
 	}
 
 	rVPNState.ControlPlaneAuth = token
-	err = SetRVpnState(rVPNState)
+	err = common.SetRVpnState(rVPNState)
 	if err != nil {
 		fmt.Println("failed to save rVPN state")
 		os.Exit(1)
@@ -64,14 +55,14 @@ func ClientConnectProfile(profile string, opts common.ClientOptions) {
 	}
 
 	// ensure device is not already connected
-	var connectionStatus daemonc.RVPNStatus
+	var connectionStatus daemon.RVPNStatus
 	err = client.Call("RVPNDaemon.Status", "", &connectionStatus)
 	if err != nil {
-		fmt.Println("failed to connect rVPN target", err)
+		fmt.Println("failed to get rVPN status", err)
 		os.Exit(1)
 	}
 
-	if connectionStatus != daemonc.StatusDisconnected {
+	if connectionStatus != daemon.StatusDisconnected {
 		// device is already connected, early exit
 		fmt.Println("device is already connected to a rVPN target, disconnect and try again")
 		os.Exit(1)
@@ -121,7 +112,7 @@ func ClientConnectProfile(profile string, opts common.ClientOptions) {
 		os.Exit(1)
 	}
 
-	deviceRegistrationResp := registerDeviceResponse{}
+	deviceRegistrationResp := common.RegisterDeviceResponse{}
 	err = json.Unmarshal(body, &deviceRegistrationResp)
 	if err != nil {
 		fmt.Println("failed to unmarshal device registration response", err)
@@ -129,7 +120,7 @@ func ClientConnectProfile(profile string, opts common.ClientOptions) {
 	}
 
 	// start connection by issuing request to rVPN daemon
-	connectionRequest := daemonc.ConnectRequest{
+	connectionRequest := daemon.ConnectRequest{
 		Profile:        profile,
 		DeviceToken:    deviceRegistrationResp.DeviceToken,
 		ControlPlaneWS: RVPN_CONTROL_PLANE_WS,
@@ -150,19 +141,19 @@ func ClientConnectProfile(profile string, opts common.ClientOptions) {
 func ClientDisconnectProfile() {
 	client, err := rpc.Dial("tcp", "127.0.0.1:52370")
 	if err != nil {
-		fmt.Println("failed to connect to rVPN daemon")
+		fmt.Println("failed to connect to rVPN daemon", err)
 		os.Exit(1)
 	}
 
 	// ensure device is connected
-	var connectionStatus daemonc.RVPNStatus
+	var connectionStatus daemon.RVPNStatus
 	err = client.Call("RVPNDaemon.Status", "", &connectionStatus)
 	if err != nil {
-		fmt.Println("failed to connect rVPN target", err)
+		fmt.Println("failed to get rVPN status", err)
 		os.Exit(1)
 	}
 
-	if connectionStatus == daemonc.StatusDisconnected {
+	if connectionStatus == daemon.StatusDisconnected {
 		// device is already connected, early exit
 		fmt.Println("device is not connected to a rVPN target, disconnect and try again")
 		os.Exit(1)
@@ -186,18 +177,18 @@ func ClientStatus() {
 		os.Exit(1)
 	}
 
-	var rVPNState daemonc.RVPNStatus
+	var rVPNState daemon.RVPNStatus
 	err = client.Call("RVPNDaemon.Status", "", &rVPNState)
 	if err != nil {
 		fmt.Println("failed to get status from rVPN daemon", err)
 		os.Exit(1)
 	}
 
-	if rVPNState == daemonc.StatusConnected {
+	if rVPNState == daemon.StatusConnected {
 		fmt.Println("rVPN is currently connected to a profile")
-	} else if rVPNState == daemonc.StatusDisconnected {
+	} else if rVPNState == daemon.StatusDisconnected {
 		fmt.Println("rVPN is not currently connected to a profile")
-	} else if rVPNState == daemonc.StatusServing {
+	} else if rVPNState == daemon.StatusServing {
 		fmt.Println("rVPN is currently serving as a target VPN server")
 	} else {
 		fmt.Println("something went wrong, rVPN status is unrecognized")

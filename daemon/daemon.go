@@ -1,4 +1,4 @@
-package daemonc
+package daemon
 
 import (
 	"context"
@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/redpwn/rvpn/common"
-	"github.com/redpwn/rvpn/daemonc/jrpc"
-	"github.com/redpwn/rvpn/daemonc/wg"
+	"github.com/redpwn/rvpn/daemon/jrpc"
+	"github.com/redpwn/rvpn/daemon/wg"
 	"github.com/sourcegraph/jsonrpc2"
 	"nhooyr.io/websocket"
 )
