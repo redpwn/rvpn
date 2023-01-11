@@ -117,6 +117,12 @@ const Home = (props: HomeProps) => {
             <StatusMessage status={rVPNStatus} />
           </div>
         </div>
+        <div className="body-section">
+          <div className="profiles-header">
+            <div className="profiles-text">Profiles</div>
+          </div>
+          <div className="profiles-body">PROFILES BODY</div>
+        </div>
       </div>
     </div>
   );
