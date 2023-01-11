@@ -1,0 +1,11 @@
+.styled-input {
+  border-style: none;
+  outline: none;
+  border-radius: 5px;
+  box-sizing: border-box;
+
+  height: 2rem;
+  width: 100%;
+  padding-inline: 10px;
+  background-color: #d9d9d9;
+}

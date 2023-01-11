@@ -10,6 +10,10 @@ export function Disconnect() {
   return window['go']['main']['App']['Disconnect']();
 }
 
+export function GetControlPlaneAuth() {
+  return window['go']['main']['App']['GetControlPlaneAuth']();
+}
+
 export function List() {
   return window['go']['main']['App']['List']();
 }
