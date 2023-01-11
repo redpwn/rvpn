@@ -52,6 +52,19 @@
   display: flex;
 }
 
+.home-body .body-section .profiles-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.home-body .body-section .profiles-header .profiles-text {
+  font-weight: bold;
+  font-size: 1.25rem;
+}
+
 .text-red {
   color: #cc0000;
 }
