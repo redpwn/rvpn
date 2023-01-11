@@ -21,6 +21,7 @@ func ClientServeProfile(profile string) {
 		fmt.Println("failed to connect to rVPN daemon")
 		os.Exit(1)
 	}
+	defer client.Close()
 
 	// ensure device is not already connected
 	var connectionStatus RVPNStatus

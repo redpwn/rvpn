@@ -62,6 +62,15 @@ func wrappedSuccess(data string) WrappedReturn {
 	}
 }
 
+func (a *App) GetControlPlaneAuth() WrappedReturn {
+	rVPNState, err := common.GetRVpnState()
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to get rPVN state: %w", err))
+	}
+
+	return wrappedSuccess(rVPNState.ControlPlaneAuth)
+}
+
 // Login will log the user in with the specified token
 func (a *App) Login(token string) WrappedReturn {
 	rVPNState, err := common.GetRVpnState()
@@ -89,6 +98,7 @@ func (a *App) Connect(profile string, opts common.ClientOptions) WrappedReturn {
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to connect to rVPN daemon: %w", err))
 	}
+	defer client.Close()
 
 	// ensure device is not already connected
 	var connectionStatus daemon.RVPNStatus
@@ -174,6 +184,7 @@ func (a *App) Disconnect() WrappedReturn {
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to connect to rVPN daemon: %w", err))
 	}
+	defer client.Close()
 
 	// ensure device is connected
 	var connectionStatus daemon.RVPNStatus
@@ -202,6 +213,7 @@ func (a *App) Status() WrappedReturn {
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to connect to rVPN daemon: %w", err))
 	}
+	defer client.Close()
 
 	var rVPNState daemon.RVPNStatus
 	err = client.Call("RVPNDaemon.Status", "", &rVPNState)

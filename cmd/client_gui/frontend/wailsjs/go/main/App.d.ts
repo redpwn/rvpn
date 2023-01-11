@@ -7,6 +7,8 @@ export function Connect(arg1:string,arg2:common.ClientOptions):Promise<main.Wrap
 
 export function Disconnect():Promise<main.WrappedReturn>;
 
+export function GetControlPlaneAuth():Promise<main.WrappedReturn>;
+
 export function List():Promise<Array<string>>;
 
 export function Login(arg1:string):Promise<main.WrappedReturn>;

@@ -1,0 +1,12 @@
+.styled-button {
+  background-color: #2972fa;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+
+  height: 2rem;
+  width: 100%;
+  padding-inline: 10px;
+  color: #ffffff;
+}

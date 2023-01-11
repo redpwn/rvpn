@@ -53,6 +53,7 @@ func ClientConnectProfile(profile string, opts common.ClientOptions) {
 		fmt.Println("failed to connect to rVPN daemon", err)
 		os.Exit(1)
 	}
+	defer client.Close()
 
 	// ensure device is not already connected
 	var connectionStatus daemon.RVPNStatus
@@ -144,6 +145,7 @@ func ClientDisconnectProfile() {
 		fmt.Println("failed to connect to rVPN daemon", err)
 		os.Exit(1)
 	}
+	defer client.Close()
 
 	// ensure device is connected
 	var connectionStatus daemon.RVPNStatus
@@ -176,6 +178,7 @@ func ClientStatus() {
 		fmt.Println("failed to connect to rVPN daemon")
 		os.Exit(1)
 	}
+	defer client.Close()
 
 	var rVPNState daemon.RVPNStatus
 	err = client.Call("RVPNDaemon.Status", "", &rVPNState)
