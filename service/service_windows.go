@@ -190,8 +190,13 @@ func EnsureServiceStarted() error {
 	// the service exists at this point, we should start the service
 	err = rvpnServiceMgr.Start()
 	if err != nil {
-		// FIXME: this will return an error if there is already an instance started, catch this and silently pass
-		return err
+		// this will return an error if there is already an instance started, catch this and silently pass
+		if err.Error() == "could not start service: An instance of the service is already running." {
+			return nil
+		} else {
+			// this is a legitimate error
+			return err
+		}
 	}
 
 	return nil
