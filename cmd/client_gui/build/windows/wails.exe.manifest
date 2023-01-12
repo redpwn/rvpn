@@ -1,6 +1,25 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
     <assemblyIdentity type="win32" name="com.wails.{{.Name}}" version="{{.Info.ProductVersion}}.0" processorArchitecture="*"/>
+    <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+        <security>
+        <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+            <!-- UAC Manifest Options
+                If you want to change the Windows User Account Control level replace the 
+                requestedExecutionLevel node with one of the following.
+
+            <requestedExecutionLevel  level="asInvoker" uiAccess="false" />
+            <requestedExecutionLevel  level="requireAdministrator" uiAccess="false" />
+            <requestedExecutionLevel  level="highestAvailable" uiAccess="false" />
+
+                Specifying requestedExecutionLevel element will disable file and registry virtualization. 
+                Remove this element if your application requires this virtualization for backwards
+                compatibility.
+            -->
+            <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+        </requestedPrivileges>
+        </security>
+    </trustInfo>
     <dependency>
         <dependentAssembly>
             <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls" version="6.0.0.0" processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>

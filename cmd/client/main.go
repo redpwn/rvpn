@@ -74,7 +74,7 @@ func main() {
 			ClientStatus()
 		case "daemon":
 			// start the rVPN daemon which is different based on user operating system
-			debug := true
+			debug := false
 			if debug {
 				newDaemon := daemon.NewRVPNDaemon()
 				newDaemon.Start()
