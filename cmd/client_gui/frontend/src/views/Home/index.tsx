@@ -4,12 +4,14 @@ import {
   Disconnect,
   GetControlPlaneAuth,
   ListTargets,
+  Logout,
   Status,
 } from "../../../wailsjs/go/main/App";
 import { common } from "../../../wailsjs/go/models";
 
 import logo from "../../assets/images/logo_w.svg";
 import Button from "../../components/Button";
+import Footer from "../../components/Footer";
 import Input from "../../components/Input";
 import { darkToast, ToastType } from "../../util";
 
@@ -57,6 +59,7 @@ const StatusMessage = (props: StatusMessageProps) => {
 const Home = (props: HomeProps) => {
   const [loading, setLoading] = useState(true);
   const [authToken, setAuthToken] = useState("");
+  const [userId, setUserId] = useState("");
   const [rVPNStatus, setRVPNStatus] = useState("");
   const [targetList, setTargetList] = useState(new Array<TargetInfo>());
 
@@ -64,6 +67,31 @@ const Home = (props: HomeProps) => {
   const [displayTargetList, setDisplayTargetList] = useState(
     new Array<TargetInfo>()
   );
+
+  const parseAuthToken = (token: string) => {
+    // helper to do initial validation; this is NOT for security
+    let splits = token.split(".");
+    if (splits.length != 3) {
+      return "";
+    }
+
+    let body = splits[1];
+    console.log(body);
+    let decodedBody = atob(body);
+
+    let parsedBody;
+    try {
+      parsedBody = JSON.parse(decodedBody);
+    } catch {
+      return "";
+    }
+
+    if (parsedBody["user"] === undefined) {
+      return "";
+    }
+
+    return parsedBody["user"];
+  };
 
   const filterTargetList = (search: string) => {
     // helper to filter the target list
@@ -130,6 +158,9 @@ const Home = (props: HomeProps) => {
       return;
     }
 
+    const userId = parseAuthToken(authTokenResp.data);
+    setUserId(userId);
+
     // if getting auth token succeeds then continue fetching
     await fetchStatus();
     await fetchTargets();
@@ -142,9 +173,16 @@ const Home = (props: HomeProps) => {
     fetchAllData().catch(console.error);
   }, []);
 
-  const handleLogout = () => {
-    darkToast(ToastType.Success, "clicked log out");
-    // TODO: logout behavior
+  const handleLogout = async () => {
+    const logoutResp = await Logout();
+    if (logoutResp.success) {
+      // logout succeeded
+      props.setAuth("");
+    } else {
+      // logout failed
+      darkToast(ToastType.Error, "failed to logout");
+      console.error(logoutResp.error);
+    }
   };
 
   const handleStatusRefresh = () => {
@@ -208,7 +246,7 @@ const Home = (props: HomeProps) => {
           <img src={logo} />
         </div>
         <div className="header-right">
-          <span>asdfasdf</span>
+          <span>{userId}</span>
           <Button text="Logout" onClick={handleLogout} />
         </div>
       </div>
@@ -265,6 +303,7 @@ const Home = (props: HomeProps) => {
             })}
           </div>
         </div>
+        <Footer />
       </div>
     </div>
   );
