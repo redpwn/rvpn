@@ -1,6 +1,6 @@
 //go:build linux
 
-package main
+package service
 
 // EnsureServiceStarted ensures the rVPN daemon has been started
 func EnsureServiceStarted() error {

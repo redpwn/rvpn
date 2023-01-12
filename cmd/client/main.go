@@ -7,6 +7,7 @@ import (
 
 	"github.com/redpwn/rvpn/common"
 	"github.com/redpwn/rvpn/daemon"
+	"github.com/redpwn/rvpn/service"
 	flag "github.com/spf13/pflag"
 )
 
@@ -78,7 +79,7 @@ func main() {
 				newDaemon := daemon.NewRVPNDaemon()
 				newDaemon.Start()
 			} else {
-				StartRVPNDaemon()
+				service.StartRVPNDaemon()
 			}
 		case "version":
 			fmt.Println("rVPN version: " + RVPN_VERSION)
