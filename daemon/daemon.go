@@ -39,8 +39,9 @@ type ConnectRequest struct {
 }
 
 type ServeRequest struct {
-	Profile     string
-	DeviceToken string
+	Profile        string
+	DeviceToken    string
+	ControlPlaneWS string
 }
 
 // RVPNDaemon represents a rVPN daemon instance
