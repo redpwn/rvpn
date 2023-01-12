@@ -10,3 +10,15 @@
   padding-inline: 10px;
   color: #ffffff;
 }
+
+.styled-button-disabled {
+  background-color: #e5e5e5;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 5px;
+
+  height: 2rem;
+  width: 100%;
+  padding-inline: 10px;
+  color: #a8a8a8;
+}
