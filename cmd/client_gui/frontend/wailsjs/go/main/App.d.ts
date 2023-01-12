@@ -13,6 +13,8 @@ export function ListTargets():Promise<main.WrappedReturn>;
 
 export function Login(arg1:string):Promise<main.WrappedReturn>;
 
+export function Logout():Promise<main.WrappedReturn>;
+
 export function Status():Promise<main.WrappedReturn>;
 
 export function Version():Promise<string>;

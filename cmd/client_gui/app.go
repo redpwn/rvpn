@@ -87,6 +87,21 @@ func (a *App) Login(token string) WrappedReturn {
 	return wrappedSuccess("successfully logged into rVPN!")
 }
 
+func (a *App) Logout() WrappedReturn {
+	rVPNState, err := common.GetRVpnState()
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to get rVPN state: %w", err))
+	}
+
+	rVPNState.ControlPlaneAuth = ""
+	err = common.SetRVpnState(rVPNState)
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to set rVPN state: %w", err))
+	}
+
+	return wrappedSuccess("successfully logged out of rVPN!")
+}
+
 // ListTargets lists the profiles the current user can access
 // NOTE: data is returned as JSON string
 func (a *App) ListTargets() WrappedReturn {
