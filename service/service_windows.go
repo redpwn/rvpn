@@ -1,6 +1,6 @@
 //go:build windows
 
-package main
+package service
 
 // this code is largely sourced from: https://github.com/golang/sys/blob/master/windows/svc/example/service.go
 
