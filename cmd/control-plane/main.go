@@ -84,7 +84,7 @@ func main() {
 	api := r.Group("/api")
 	v1 := api.Group("/v1")
 
-	// target  routes
+	// target routes
 	v1.Get("/target", a.AuthUserMiddleware, a.getTargets)
 	v1.Put("/target/:target", a.AuthUserMiddleware, a.createTarget)
 	v1.Post("/target/:target/register_device", a.AuthUserMiddleware, a.registerDevice)
