@@ -44,7 +44,7 @@ func (r *RVPNDaemon) Serve(args ServeRequest, reply *bool) error {
 		Transport: customTransport,
 	}
 
-	websocketURL := RVPN_CONTROL_PLANE_WS + "/api/v1/target/" + args.Profile + "/serve"
+	websocketURL := args.ControlPlaneWS + "/api/v1/target/" + args.Profile + "/serve"
 	conn, _, err := websocket.Dial(ctx, websocketURL, &websocket.DialOptions{
 		HTTPClient: &customHttpClient,
 	})
@@ -83,7 +83,7 @@ func serveVPNHandler(ctx context.Context, h jrpcHandler, conn *jsonrpc2.Conn, re
 	// NOTE: this code path should only be triggered on Linux devices
 
 	// get pubkey and privkey from rVPN state
-	rVPNState, err := GetRVpnState()
+	rVPNState, err := common.GetRVpnState()
 	if err != nil {
 		log.Printf("failed to get rVPN state: %v", err)
 		conn.Reply(ctx, req.ID, common.ServeVPNResponse{

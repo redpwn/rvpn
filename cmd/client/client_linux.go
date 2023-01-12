@@ -12,6 +12,8 @@ import (
 	"os"
 
 	"github.com/denisbrodbeck/machineid"
+	"github.com/redpwn/rvpn/common"
+	"github.com/redpwn/rvpn/daemon"
 )
 
 // ClientServeProfile instructs the rVPN daemon to serve as a VPN server for a target via rpc
@@ -24,14 +26,14 @@ func ClientServeProfile(profile string) {
 	defer client.Close()
 
 	// ensure device is not already connected
-	var connectionStatus RVPNStatus
+	var connectionStatus daemon.RVPNStatus
 	err = client.Call("RVPNDaemon.Status", "", &connectionStatus)
 	if err != nil {
 		fmt.Println("failed to connect rVPN target", err)
 		os.Exit(1)
 	}
 
-	if connectionStatus != StatusDisconnected {
+	if connectionStatus != daemon.StatusDisconnected {
 		// device is already connected, early exit
 		fmt.Println("device is already connected to a rVPN target, disconnect and try again")
 		os.Exit(1)
@@ -81,7 +83,7 @@ func ClientServeProfile(profile string) {
 		os.Exit(1)
 	}
 
-	deviceRegistrationResp := registerDeviceResponse{}
+	deviceRegistrationResp := common.RegisterDeviceResponse{}
 	err = json.Unmarshal(body, &deviceRegistrationResp)
 	if err != nil {
 		fmt.Println("failed to unmarshal device registration response", err)
@@ -89,9 +91,10 @@ func ClientServeProfile(profile string) {
 	}
 
 	// start serving connection by issuing request to rVPN daemon
-	serveRequest := ConnectRequest{
-		Profile:     profile,
-		DeviceToken: deviceRegistrationResp.DeviceToken,
+	serveRequest := daemon.ServeRequest{
+		Profile:        profile,
+		DeviceToken:    deviceRegistrationResp.DeviceToken,
+		ControlPlaneWS: RVPN_CONTROL_PLANE_WS,
 	}
 
 	var connectionSuccess bool
