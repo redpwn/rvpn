@@ -14,8 +14,8 @@ export function GetControlPlaneAuth() {
   return window['go']['main']['App']['GetControlPlaneAuth']();
 }
 
-export function List() {
-  return window['go']['main']['App']['List']();
+export function ListTargets() {
+  return window['go']['main']['App']['ListTargets']();
 }
 
 export function Login(arg1) {

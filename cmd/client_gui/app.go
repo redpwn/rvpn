@@ -87,9 +87,47 @@ func (a *App) Login(token string) WrappedReturn {
 	return wrappedSuccess("successfully logged into rVPN!")
 }
 
-// List lists the profiles the current user can access
-func (a *App) List() ([]string, error) {
-	return []string{}, nil
+// ListTargets lists the profiles the current user can access
+// NOTE: data is returned as JSON string
+func (a *App) ListTargets() WrappedReturn {
+	// get control plane authentication token
+	rVPNState, err := common.GetRVpnState()
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to get rVPN state: %w", err))
+	}
+
+	controlPanelAuthToken := rVPNState.ControlPlaneAuth
+	if controlPanelAuthToken == "" {
+		return wrappedError(fmt.Errorf(`not logged into rVPN, login first"`))
+	}
+
+	controlPlaneURL := RVPN_CONTROL_PLANE + "/api/v1/target/"
+
+	req, err := http.NewRequest("GET", controlPlaneURL, nil)
+	if err != nil {
+		return wrappedError(fmt.Errorf("register device request failed: %w", err))
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", controlPanelAuthToken))
+	req.Header.Set("Content-Type", "application/json")
+
+	httpClient := &http.Client{}
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to send device registration request: %w", err))
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return wrappedError(fmt.Errorf("invalid rVPN login token, please check target / login token and try again"))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to read user targets response: %w", err))
+	}
+
+	return wrappedSuccess(string(body))
 }
 
 func (a *App) Connect(profile string, opts common.ClientOptions) WrappedReturn {
@@ -120,7 +158,7 @@ func (a *App) Connect(profile string, opts common.ClientOptions) WrappedReturn {
 
 	controlPanelAuthToken := rVPNState.ControlPlaneAuth
 	if controlPanelAuthToken == "" {
-		return wrappedError(fmt.Errorf(`not logged into rVPN, login first using "rvpn login [token]"`))
+		return wrappedError(fmt.Errorf(`not logged into rVPN, login first"`))
 	}
 
 	machineId, err := machineid.ID()

@@ -9,7 +9,7 @@ export function Disconnect():Promise<main.WrappedReturn>;
 
 export function GetControlPlaneAuth():Promise<main.WrappedReturn>;
 
-export function List():Promise<Array<string>>;
+export function ListTargets():Promise<main.WrappedReturn>;
 
 export function Login(arg1:string):Promise<main.WrappedReturn>;
 
