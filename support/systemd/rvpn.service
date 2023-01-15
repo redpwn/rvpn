@@ -1,0 +1,14 @@
+[Unit]
+Description=rVPN daemon
+
+[Service]
+User=nobody
+ExecStart=/usr/local/bin/rvpn daemon
+AmbientCapabilities=CAP_NET_ADMIN
+ProtectSystem=strict
+RuntimeDirectory=wireguard
+StateDirectory=rvpn
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
