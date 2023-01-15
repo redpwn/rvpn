@@ -79,7 +79,12 @@ func main() {
 				newDaemon := daemon.NewRVPNDaemon()
 				newDaemon.Start()
 			} else {
-				service.StartRVPNDaemon()
+				exePath, err := os.Executable()
+				if err != nil {
+					return
+				}
+
+				service.StartRVPNDaemon(exePath)
 			}
 		case "version":
 			fmt.Println("rVPN version: " + RVPN_VERSION)

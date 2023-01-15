@@ -8,10 +8,14 @@ import (
 	"io"
 	"net/http"
 	"net/rpc"
+	"os"
+	"path"
+	"path/filepath"
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/redpwn/rvpn/common"
 	"github.com/redpwn/rvpn/daemon"
+	"github.com/redpwn/rvpn/service"
 )
 
 const (
@@ -34,6 +38,20 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+
+	// Launch rVPN daemon service if not debug
+	debug := false
+	if !debug {
+		exePath, err := os.Executable()
+		if err != nil {
+			return
+		}
+
+		exeDirPath := filepath.Dir(exePath)
+		cliClientPath := path.Join(exeDirPath, "rvpnc.exe")
+
+		service.StartRVPNDaemon(cliClientPath)
+	}
 }
 
 // similar to the rVPN cli client, we create bindings to the rVPN daemon

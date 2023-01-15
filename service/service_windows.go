@@ -7,7 +7,6 @@ package service
 import (
 	"fmt"
 	"log"
-	"os"
 	"time"
 
 	"github.com/redpwn/rvpn/daemon"
@@ -46,12 +45,7 @@ func (r *RVPNServiceMgr) Exists() (bool, error) {
 }
 
 // Install attempts to install the rVPN service
-func (r *RVPNServiceMgr) Install() error {
-	exepath, err := os.Executable()
-	if err != nil {
-		return err
-	}
-
+func (r *RVPNServiceMgr) Install(cliClientPath string) error {
 	m, err := mgr.Connect()
 	if err != nil {
 		return err
@@ -68,7 +62,7 @@ func (r *RVPNServiceMgr) Install() error {
 		DisplayName: displayName,
 		Description: serviceDesc,
 	}
-	s, err = m.CreateService(serviceName, exepath, svcConfig, "daemon")
+	s, err = m.CreateService(serviceName, cliClientPath, svcConfig, "daemon")
 	if err != nil {
 		return err
 	}
@@ -170,7 +164,7 @@ func runService(name string, isDebug bool) {
 }
 
 // EnsureServiceStarted ensures the rVPN daemon has been started
-func EnsureServiceStarted() error {
+func EnsureServiceStarted(cliClientPath string) error {
 	rvpnServiceMgr := RVPNServiceMgr{}
 	exists, err := rvpnServiceMgr.Exists()
 	if err != nil {
@@ -181,7 +175,8 @@ func EnsureServiceStarted() error {
 		// we know the service does not exist, create it
 		log.Println("rVPN service does not exist, installing service...")
 
-		err := rvpnServiceMgr.Install()
+		log.Println("cli client path: " + cliClientPath)
+		err := rvpnServiceMgr.Install(cliClientPath)
 		if err != nil {
 			return err
 		}
@@ -202,7 +197,7 @@ func EnsureServiceStarted() error {
 	return nil
 }
 
-func StartRVPNDaemon() {
+func StartRVPNDaemon(cliClientPath string) {
 	inService, err := svc.IsWindowsService()
 	if err != nil {
 		log.Fatalf("failed to detect if windows service: %v", err)
@@ -210,7 +205,7 @@ func StartRVPNDaemon() {
 
 	if !inService {
 		// if not service, ensure rvpn service is running
-		err := EnsureServiceStarted()
+		err := EnsureServiceStarted(cliClientPath)
 		if err != nil {
 			log.Fatalf("failed to ensure service started: %v", err)
 		}
