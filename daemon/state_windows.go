@@ -2,6 +2,12 @@
 
 package daemon
 
+import (
+	"path"
+
+	"github.com/kirsle/configdir"
+)
+
 // getRVpnStatePath gets the rVPN state path from the system
 func getRVpnStatePath() (string, error) {
 	configPaths := configdir.SystemConfig("rvpn")
