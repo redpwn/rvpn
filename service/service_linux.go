@@ -2,14 +2,11 @@
 
 package service
 
-// EnsureServiceStarted ensures the rVPN daemon has been started
-func EnsureServiceStarted() error {
-	return nil
-}
+import "github.com/redpwn/rvpn/daemon"
 
-// StartRVPNDaemon starts the rVPN daemon on linux
+// StartRVPNDaemon is the entrypoint to starting the linux rVPN daemon
 // NOTEL: cliClientPath is a stubbed param and has no effect
 func StartRVPNDaemon(cliClientPath string) {
-	// TODO: implement starting the linux daemon
-
+	newDaemon := daemon.NewRVPNDaemon()
+	newDaemon.Start()
 }

@@ -197,6 +197,7 @@ func EnsureServiceStarted(cliClientPath string) error {
 	return nil
 }
 
+// StartRVPNDaemon is the entrypoint to starting the windows rVPN daemon
 func StartRVPNDaemon(cliClientPath string) {
 	inService, err := svc.IsWindowsService()
 	if err != nil {

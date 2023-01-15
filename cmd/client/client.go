@@ -197,3 +197,27 @@ func ClientStatus() {
 		fmt.Println("something went wrong, rVPN status is unrecognized")
 	}
 }
+
+// EnsureDaemonStarted checks if the daemon is started, if not it prompts to start the daemon
+func EnsureDaemonStarted() {
+	// TODO: determine if elevating and running the command is neccesary per UX
+	client, err := rpc.Dial("tcp", "127.0.0.1:52370")
+	if err != nil {
+		fmt.Println("failed to connect to rVPN daemon, ensure the rvpn service is running")
+		os.Exit(1)
+	}
+	defer client.Close()
+
+	// ping to ensure daemon is alive
+	var pingStatus bool
+	err = client.Call("RVPNDaemon.Ping", "", &pingStatus)
+	if err != nil {
+		fmt.Println("failed to connect to rVPN daemon, ensure the rvpn service is running")
+		os.Exit(1)
+	}
+
+	if !pingStatus {
+		fmt.Println("failed to connect to rVPN daemon, ensure the rvpn service is running")
+		os.Exit(1)
+	}
+}

@@ -52,7 +52,7 @@ func main() {
 			fmt.Println("list")
 		case "connect":
 			if profile := flag.Arg(1); profile != "" {
-				daemon.EnsureDaemonStarted()
+				EnsureDaemonStarted()
 				ClientConnectProfile(profile, common.ClientOptions{
 					Subnets: *subnets,
 				})
@@ -61,16 +61,16 @@ func main() {
 			}
 		case "serve":
 			if profile := flag.Arg(1); profile != "" {
-				daemon.EnsureDaemonStarted()
+				EnsureDaemonStarted()
 				ClientServeProfile(profile)
 			} else {
 				fmt.Println("missing required profile, rvpn serve [profile]")
 			}
 		case "disconnect":
-			daemon.EnsureDaemonStarted()
+			EnsureDaemonStarted()
 			ClientDisconnectProfile()
 		case "status":
-			daemon.EnsureDaemonStarted()
+			EnsureDaemonStarted()
 			ClientStatus()
 		case "daemon":
 			// start the rVPN daemon which is different based on user operating system

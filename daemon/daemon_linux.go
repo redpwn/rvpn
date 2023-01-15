@@ -18,13 +18,6 @@ import (
 	"nhooyr.io/websocket"
 )
 
-// EnsureDaemonStarted checks if the daemon is started
-func EnsureDaemonStarted() error {
-	// elevate and run the command "rvpn daemon"
-	// TODO: complete this function
-	return nil
-}
-
 // Serve instructs the rVPN daemon to act as a target VPN server
 func (r *RVPNDaemon) Serve(args ServeRequest, reply *bool) error {
 	// create long-lived WebSocket connection acting as jrpc channel between client and control plane
