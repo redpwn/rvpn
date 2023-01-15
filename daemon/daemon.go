@@ -356,6 +356,11 @@ func (r *RVPNDaemon) Disconnect(args string, reply *bool) error {
 	return nil
 }
 
+func (r *RVPNDaemon) Ping(args string, reply *bool) error {
+	*reply = true
+	return nil
+}
+
 func (r *RVPNDaemon) Start() {
 	log.Println("starting rVPN wireguard daemon...")
 
