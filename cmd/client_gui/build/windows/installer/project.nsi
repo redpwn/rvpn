@@ -83,6 +83,10 @@ Section
     
     !insertmacro wails.files
 
+    # manually add rvpnc (cli client) and wintun.dll to install directory
+    File ..\..\bin\rvpnc.exe
+    File ..\..\bin\wintun.dll
+
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
     CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
 

@@ -7,6 +7,9 @@ func EnsureServiceStarted() error {
 	return nil
 }
 
-func StartRVPNDaemon() {
+// StartRVPNDaemon starts the rVPN daemon on linux
+// NOTEL: cliClientPath is a stubbed param and has no effect
+func StartRVPNDaemon(cliClientPath string) {
 	// TODO: implement starting the linux daemon
+
 }
