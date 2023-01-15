@@ -76,7 +76,7 @@ func serveVPNHandler(ctx context.Context, h jrpcHandler, conn *jsonrpc2.Conn, re
 	// NOTE: this code path should only be triggered on Linux devices
 
 	// get pubkey and privkey from rVPN state
-	rVPNState, err := common.GetRVpnState()
+	rVPNState, err := GetRVpnState()
 	if err != nil {
 		log.Printf("failed to get rVPN state: %v", err)
 		conn.Reply(ctx, req.ID, common.ServeVPNResponse{

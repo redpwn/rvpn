@@ -135,7 +135,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		// return client information to rVPN control plane
 
 		// get public key from rVPN state
-		rVPNState, err := common.GetRVpnState()
+		rVPNState, err := GetRVpnState()
 		if err != nil {
 			log.Printf("failed to get rVPN state: %v", err)
 			conn.Reply(ctx, req.ID, common.GetClientInformationResponse{
@@ -156,7 +156,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 			rVPNState.PrivateKey = privateKey
 			rVPNState.PublicKey = publicKey
 
-			err = common.SetRVpnState(rVPNState)
+			err = SetRVpnState(rVPNState)
 			if err != nil {
 				log.Printf("failed to save rVPN state: %v", err)
 				conn.Reply(ctx, req.ID, common.GetClientInformationResponse{
@@ -175,7 +175,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		// return serve information to rVPN control plane
 
 		// get public key from rVPN state
-		rVPNState, err := common.GetRVpnState()
+		rVPNState, err := GetRVpnState()
 		if err != nil {
 			log.Printf("failed to get rVPN state: %v", err)
 			conn.Reply(ctx, req.ID, common.GetServeInformationResponse{
@@ -196,7 +196,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 			rVPNState.PrivateKey = privateKey
 			rVPNState.PublicKey = publicKey
 
-			err = common.SetRVpnState(rVPNState)
+			err = SetRVpnState(rVPNState)
 			if err != nil {
 				log.Printf("failed to save rVPN state: %v", err)
 				conn.Reply(ctx, req.ID, common.GetServeInformationResponse{
@@ -216,7 +216,7 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 		// connect to server with information provided from rVPN control plane
 
 		// get pubkey and privkey from rVPN state
-		rVPNState, err := common.GetRVpnState()
+		rVPNState, err := GetRVpnState()
 		if err != nil {
 			log.Printf("failed to get rVPN state: %v", err)
 			conn.Reply(ctx, req.ID, common.ConnectServerResponse{
@@ -286,6 +286,26 @@ func (h jrpcHandler) Handle(ctx context.Context, conn *jsonrpc2.Conn, req *jsonr
 }
 
 /* rVPN daemon rpc handlers */
+
+func (r *RVPNDaemon) GetState(args string, reply *RVpnState) error {
+	rvpnState, err := GetRVpnState()
+	if err != nil {
+		return err
+	}
+
+	*reply = rvpnState
+	return nil
+}
+
+func (r *RVPNDaemon) SetState(args RVpnState, reply *bool) error {
+	err := SetRVpnState(args)
+	if err != nil {
+		return err
+	}
+
+	*reply = true
+	return nil
+}
 
 // Status returns the current status of the rVPN daemon
 func (r *RVPNDaemon) Status(args string, reply *RVPNStatus) error {
@@ -362,8 +382,17 @@ func (r *RVPNDaemon) Ping(args string, reply *bool) error {
 }
 
 func (r *RVPNDaemon) Start() {
-	log.Println("starting rVPN wireguard daemon...")
+	log.Println("starting rVPN daemon")
 
+	// initialize rVPN state
+	log.Println("initializing rVPN state")
+	err := InitRVPNState()
+	if err != nil {
+		log.Fatalf("failed to initialize state: %v", err)
+	}
+
+	// initialize rVPN wireguard daemon
+	log.Println("starting rVPN wireguard daemon...")
 	wireguardDaemon := wg.NewWireguardDaemon()
 	r.wireguardDaemon = wireguardDaemon
 
@@ -371,7 +400,7 @@ func (r *RVPNDaemon) Start() {
 	term := make(chan os.Signal, 1)
 
 	// start the wireguard interface device
-	err := wireguardDaemon.StartDevice(errs)
+	err = wireguardDaemon.StartDevice(errs)
 	if err != nil {
 		log.Fatalf("failed to start daemon: %v", err)
 	}
