@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -80,8 +81,43 @@ func wrappedSuccess(data string) WrappedReturn {
 	}
 }
 
+// GetRVpnState gets the rVPN state using the rpc client
+func GetRVpnState(client *rpc.Client) (daemon.RVpnState, error) {
+	// get state from rVPN daemon
+	var rVPNState daemon.RVpnState
+	err := client.Call("RVPNDaemon.GetState", "", &rVPNState)
+	if err != nil {
+		return daemon.RVpnState{}, err
+	}
+
+	return rVPNState, nil
+}
+
+// Set RVpnState sets the rVPN state using the rpc client
+func SetRVpnState(client *rpc.Client, rVPNState daemon.RVpnState) error {
+	// get state from rVPN daemon
+	var rVPNSetStateSuccess bool
+	err := client.Call("RVPNDaemon.SetState", rVPNState, &rVPNSetStateSuccess)
+	if err != nil {
+		return err
+	}
+
+	if rVPNSetStateSuccess {
+		return nil
+	} else {
+		return errors.New("failed to set rVPN state")
+	}
+}
+
 func (a *App) GetControlPlaneAuth() WrappedReturn {
-	rVPNState, err := common.GetRVpnState()
+	// connect to rVPN daemon
+	client, err := rpc.Dial("tcp", "127.0.0.1:52370")
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to connect to rVPN daemon: %w", err))
+	}
+	defer client.Close()
+
+	rVPNState, err := GetRVpnState(client)
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to get rPVN state: %w", err))
 	}
@@ -91,13 +127,20 @@ func (a *App) GetControlPlaneAuth() WrappedReturn {
 
 // Login will log the user in with the specified token
 func (a *App) Login(token string) WrappedReturn {
-	rVPNState, err := common.GetRVpnState()
+	// connect to rVPN daemon
+	client, err := rpc.Dial("tcp", "127.0.0.1:52370")
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to connect to rVPN daemon: %w", err))
+	}
+	defer client.Close()
+
+	rVPNState, err := GetRVpnState(client)
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to get rVPN state: %w", err))
 	}
 
 	rVPNState.ControlPlaneAuth = token
-	err = common.SetRVpnState(rVPNState)
+	err = SetRVpnState(client, rVPNState)
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to set rVPN state: %w", err))
 	}
@@ -106,13 +149,20 @@ func (a *App) Login(token string) WrappedReturn {
 }
 
 func (a *App) Logout() WrappedReturn {
-	rVPNState, err := common.GetRVpnState()
+	// connect to rVPN daemon
+	client, err := rpc.Dial("tcp", "127.0.0.1:52370")
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to connect to rVPN daemon: %w", err))
+	}
+	defer client.Close()
+
+	rVPNState, err := GetRVpnState(client)
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to get rVPN state: %w", err))
 	}
 
 	rVPNState.ControlPlaneAuth = ""
-	err = common.SetRVpnState(rVPNState)
+	err = SetRVpnState(client, rVPNState)
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to set rVPN state: %w", err))
 	}
@@ -123,8 +173,15 @@ func (a *App) Logout() WrappedReturn {
 // ListTargets lists the profiles the current user can access
 // NOTE: data is returned as JSON string
 func (a *App) ListTargets() WrappedReturn {
+	// connect to rVPN daemon
+	client, err := rpc.Dial("tcp", "127.0.0.1:52370")
+	if err != nil {
+		return wrappedError(fmt.Errorf("failed to connect to rVPN daemon: %w", err))
+	}
+	defer client.Close()
+
 	// get control plane authentication token
-	rVPNState, err := common.GetRVpnState()
+	rVPNState, err := GetRVpnState(client)
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to get rVPN state: %w", err))
 	}
@@ -184,7 +241,7 @@ func (a *App) Connect(profile string, opts common.ClientOptions) WrappedReturn {
 	}
 
 	// ensure device is registered for target
-	rVPNState, err := common.GetRVpnState()
+	rVPNState, err := GetRVpnState(client)
 	if err != nil {
 		return wrappedError(fmt.Errorf("failed to get rVPN state: %w", err))
 	}
