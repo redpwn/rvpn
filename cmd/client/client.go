@@ -15,10 +15,11 @@ import (
 )
 
 // client.go holds functions which interact (connect, disconnect, status) with the client daemon via rpc
+// functions in this file assume the daemon is running otherwise they will error
 
 // getControlPanelAuthToken gets the control panel auth token from state
-func getControlPanelAuthToken() string {
-	rVPNState, err := common.GetRVpnState()
+func getControlPanelAuthToken(client *rpc.Client) string {
+	rVPNState, err := GetRVpnState(client)
 	if err != nil {
 		fmt.Printf("failed to get rVPN state: %v\n", err)
 		os.Exit(1)
@@ -29,14 +30,21 @@ func getControlPanelAuthToken() string {
 
 // ControlPanelAuthLogin saves the given token as the login token
 func ControlPanelAuthLogin(token string) {
-	rVPNState, err := common.GetRVpnState()
+	client, err := rpc.Dial("tcp", "127.0.0.1:52370")
+	if err != nil {
+		fmt.Println("failed to connect to rVPN daemon", err)
+		os.Exit(1)
+	}
+	defer client.Close()
+
+	rVPNState, err := GetRVpnState(client)
 	if err != nil {
 		fmt.Printf("failed to get rVPN state: %v\n", err)
 		os.Exit(1)
 	}
 
 	rVPNState.ControlPlaneAuth = token
-	err = common.SetRVpnState(rVPNState)
+	err = SetRVpnState(client, rVPNState)
 	if err != nil {
 		fmt.Println("failed to save rVPN state")
 		os.Exit(1)
@@ -70,7 +78,7 @@ func ClientConnectProfile(profile string, opts common.ClientOptions) {
 	}
 
 	// ensure device is registered for target
-	controlPanelAuthToken := getControlPanelAuthToken()
+	controlPanelAuthToken := getControlPanelAuthToken(client)
 	if controlPanelAuthToken == "" {
 		fmt.Println(`not logged into rVPN, login first using "rvpn login [token]"`)
 		os.Exit(1)

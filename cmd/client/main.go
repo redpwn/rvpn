@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/redpwn/rvpn/common"
@@ -24,12 +23,7 @@ func main() {
 	// begin main cli parsing
 	flag.Parse()
 
-	err := common.InitRVPNState()
-	if err != nil {
-		log.Printf("failed to initialize rVPN state: %v", err)
-		os.Exit(1)
-	}
-
+	// TODO: replace with cobra
 	if command := flag.Arg(0); command != "" {
 		switch command {
 		case "help":
@@ -46,6 +40,7 @@ func main() {
 				fmt.Println("missing required token, rvpn login [token]")
 			} else {
 				// token was provided
+				EnsureDaemonStarted()
 				ControlPanelAuthLogin(token)
 			}
 		case "list":

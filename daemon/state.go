@@ -1,12 +1,10 @@
-package common
+package daemon
 
 import (
 	"bufio"
 	"encoding/json"
 	"os"
 	"path"
-
-	"github.com/kirsle/configdir"
 )
 
 type RVpnState struct {
@@ -14,13 +12,6 @@ type RVpnState struct {
 	PrivateKey       string `json:"privatekey"`
 	PublicKey        string `json:"publickey"`
 	ActiveProfile    string `json:"activeprofile"` // TODO: remove because deprecated, this logic is moved to the rVPN daemon
-}
-
-// getRVpnStatePath gets the rVPN state path from the system
-func getRVpnStatePath() (string, error) {
-	configPaths := configdir.SystemConfig("rvpn")
-
-	return path.Join(configPaths[0], "state.json"), nil
 }
 
 // GetRVpnState returns the parsed rVPN state from the system
@@ -68,19 +59,19 @@ func SetRVpnState(rVpnStateData RVpnState) error {
 
 // InitRVPNState initializes the WireGuard client and must be run before any operations
 func InitRVPNState() error {
-	// create rVPN configuration directory if not exists
-	rvpnConfigDir := configdir.SystemConfig("rvpn")[0]
-	if _, err := os.Stat(rvpnConfigDir); os.IsNotExist(err) {
-		err = os.MkdirAll(rvpnConfigDir, 0600)
-		if err != nil {
-			return err
-		}
-	}
-
 	// initialize rVPN state
 	rVpnStateFile, err := getRVpnStatePath()
 	if err != nil {
 		return err
+	}
+
+	// create rVPN state directory if not exists
+	rVpnConfigDir := path.Dir(rVpnStateFile)
+	if _, err := os.Stat(rVpnConfigDir); os.IsNotExist(err) {
+		err = os.MkdirAll(rVpnConfigDir, 0600)
+		if err != nil {
+			return err
+		}
 	}
 
 	if _, err := os.Stat(rVpnStateFile); os.IsNotExist(err) {

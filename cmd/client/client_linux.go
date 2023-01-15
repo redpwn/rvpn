@@ -40,7 +40,7 @@ func ClientServeProfile(profile string) {
 	}
 
 	// ensure device is registered for target TODO: this code is repeated, abstract this into a function
-	controlPanelAuthToken := getControlPanelAuthToken()
+	controlPanelAuthToken := getControlPanelAuthToken(client)
 	if controlPanelAuthToken == "" {
 		fmt.Println(`not logged into rVPN, login first using "rvpn login [token]"`)
 		os.Exit(1)
