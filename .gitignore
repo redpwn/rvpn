@@ -1,3 +1,6 @@
 *.exe
+
 cmd/client/wintun.dll
 cmd/client/client
+
+dist/
