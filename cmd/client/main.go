@@ -44,7 +44,8 @@ func main() {
 				ControlPanelAuthLogin(token)
 			}
 		case "list":
-			fmt.Println("list")
+			EnsureDaemonStarted()
+			ListTargetProfiles()
 		case "connect":
 			if profile := flag.Arg(1); profile != "" {
 				EnsureDaemonStarted()

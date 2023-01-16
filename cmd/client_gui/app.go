@@ -195,7 +195,7 @@ func (a *App) ListTargets() WrappedReturn {
 
 	req, err := http.NewRequest("GET", controlPlaneURL, nil)
 	if err != nil {
-		return wrappedError(fmt.Errorf("register device request failed: %w", err))
+		return wrappedError(fmt.Errorf("list target profiles request failed: %w", err))
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", controlPanelAuthToken))
@@ -204,7 +204,7 @@ func (a *App) ListTargets() WrappedReturn {
 	httpClient := &http.Client{}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return wrappedError(fmt.Errorf("failed to send device registration request: %w", err))
+		return wrappedError(fmt.Errorf("failed to send list target profiles request: %w", err))
 	}
 	defer resp.Body.Close()
 
