@@ -88,7 +88,7 @@ func (a *app) clientConnect(c *fiber.Ctx) error {
 			// server is not alive, we cannot make a connection
 			// TODO: better way to inform client is to have this be an error for connect command (architectural issue)
 			a.log.Info("target server is not alive, we cannot connect")
-			// return TODO: remove temporary alive bypass
+			return
 		}
 
 		// we are now authentciated and target server is alive
@@ -203,7 +203,7 @@ func (a *app) clientConnect(c *fiber.Ctx) error {
 			a.log.Error("failed to call connectserver via jrpc", zap.Error(err))
 		}
 
-		// DEBUG
+		// TODO: remove debug
 		fmt.Println("issued connect server with following info", connectServerRequest.ServerIp, connectServerRequest.ServerPublicKey, connectServerRequest.ClientPublicKey)
 
 		// save the jrpc connection for the rvpn client to the connection manager
