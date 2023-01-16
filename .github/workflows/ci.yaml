@@ -25,13 +25,13 @@ jobs:
           node-version: 18
       - run: node --version
 
-      - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
-      - run: wails doctor
-
       - name: Install NSIS
         run: sudo apt-get install -y nsis
       - run: makensis -VERSION
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      - run: wails doctor
 
       - name: Compile CLI clients
         run: |
@@ -44,7 +44,7 @@ jobs:
 
       - name: Move files around for final artifact upload
         run: |
-          mv cmd/client_gui/build/rvpn-amd64-installer.exe build/
+          mv cmd/client_gui/build/bin/rvpn-amd64-installer.exe build/
       - uses: actions/upload-artifact@v3
         with:
           name: binaries
