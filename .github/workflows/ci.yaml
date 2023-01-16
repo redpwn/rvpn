@@ -1,0 +1,51 @@
+# vim: ft=yaml ts=2 et
+
+name: CI
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  client-build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: '1.19'
+      - run: go version
+
+      - name: Install Gox
+        run: go install github.com/mitchellh/gox@latest
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: node --version
+
+      - name: Install NSIS
+        run: sudo apt-get install -y nsis
+      - run: makensis -VERSION
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      - run: wails doctor
+
+      - name: Compile CLI clients
+        run: |
+          gox -osarch='linux/amd64 windows/amd64' \
+            -output='build/{{.Dir}}_{{.OS}}_{{.Arch}}' \
+            ./cmd/client
+
+      - name: Compile Windows GUI client
+        run: scripts/build-windows.sh
+
+      - name: Move files around for final artifact upload
+        run: |
+          mv cmd/client_gui/build/bin/rvpn-amd64-installer.exe build/
+      - uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: build/
