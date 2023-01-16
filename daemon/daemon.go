@@ -362,6 +362,8 @@ func (r *RVPNDaemon) Connect(args ConnectRequest, reply *bool) error {
 	r.jrpcConn = jrpcConn
 	r.jrpcCtxCancel = cancelFunc
 
+	// TODO: get address on target vpn server to ensure connection is alive
+
 	*reply = true
 	return nil
 }
