@@ -49,7 +49,7 @@ main() {
         select yn in "Yes" "No"; do
             case $yn in
                 Yes ) enable_ip4_forwarding $sudo ; break;;
-                No ) exit;;
+                No ) break;;
             esac
         done
     fi
