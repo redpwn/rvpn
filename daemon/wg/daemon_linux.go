@@ -280,13 +280,23 @@ func (d *WireguardDaemon) UpdateClientConf(wgConf ClientWgConfig, controlPlaneAd
 	// set routes to be the de-duped peer allowed IPs (routable subnets)
 	// TODO: enable this to be overridden for client via cli flag
 	// TODO: this needs to actually be the de-duped peer allowed IPs
-	_, parsedPeerAllowedIP, err := net.ParseCIDR("0.0.0.0/1") // we create a slightly more specific than default route
+
+	// we create a slightly more specific than default route
+	_, parsedPeerAllowedIP, err := net.ParseCIDR("0.0.0.0/1")
 	if err != nil {
 		log.Fatalf("failed to parse peer allowed IP into net.IPNet")
+	}
+
+	_, otherParsedPeerAllowedIP, err := net.ParseCIDR("128.0.0.0/1")
+	if err != nil {
+		log.Fatalf("failed to parse other peer allowed IP into net.IPNet")
 	}
 	routes := []netlink.Route{{
 		LinkIndex: interfaceLink.Attrs().Index,
 		Dst:       parsedPeerAllowedIP,
+	}, {
+		LinkIndex: interfaceLink.Attrs().Index,
+		Dst:       otherParsedPeerAllowedIP,
 	}}
 
 	// add peer routes to the rvpn wireguard interface
@@ -489,7 +499,7 @@ func (d *WireguardDaemon) Disconnect() {
 	// cleanup any routing rules
 	for _, appendedRoute := range d.appendedRoutes {
 		if err := netlink.RouteDel(&appendedRoute); err != nil {
-			log.Printf("failed to delete appended route: %v", err)
+			log.Printf("warn: failed to delete appended route: %v", err)
 		}
 	}
 
@@ -507,7 +517,9 @@ func (d *WireguardDaemon) ShutdownDevice() {
 	d.Uapi.Close()
 	d.Device.Close()
 
-	// clean up routes - remove server ip from default interface
+	// clean up routes on default interface - remove server ip from default interface
+	// TODO: investigate if these should exit with fatal
+	// TODO(bug): only run if d.DefaultIFaceLink is not nil
 	_, parsedIPNet, err := net.ParseCIDR(d.ServerIP.String())
 	if err != nil {
 		log.Fatalf("failed to parse server IP into net.IPNet")
@@ -522,7 +534,7 @@ func (d *WireguardDaemon) ShutdownDevice() {
 		log.Fatalf("failed to delete server IP from default interface: %v", err)
 	}
 
-	// remote control plane ip from default interface
+	// remove control plane ip from default interface
 	_, parsedIPNet, err = net.ParseCIDR(d.ControlPlaneIP.String())
 	if err != nil {
 		log.Fatalf("failed to parse server IP into net.IPNet")
