@@ -45,7 +45,7 @@ main() {
 
     # ask user if they want to enable ip forwarding if not already enabled
     if [ "$(cat /proc/sys/net/ipv4/ip_forward)" -eq 0 ]; then
-        echo "Do you wish to enable IP Forwarding (only used if this device is a VPN server)? [1,2]"
+        echo "Do you wish to enable IP Forwarding (only used if this device is a VPN server)?"
         select yn in "Yes" "No"; do
             case $yn in
                 Yes ) enable_ip4_forwarding $sudo ; break;;
@@ -55,12 +55,21 @@ main() {
     fi
 
     # install rvpn and rvpn service
-    $sudo install -Dm 644 -t /usr/local/lib/systemd/system/ rvpn_linux_$arch/systemd/systemd/rvpn.service
+    $sudo install -Dm 644 -t /usr/local/lib/systemd/system/ rvpn_linux_$arch/systemd/rvpn.service
     $sudo install -m 755 -t /usr/local/bin/ rvpn_linux_$arch/bin/rvpn
+
+    echo "Start rvpn daemon?"
+    select yn in "Enable (start on boot)" "Start" "Skip"; do
+        case $yn in
+            "Enable (start on boot)" ) $sudo systemctl enable --now rvpn ; break;;
+            "Start" ) $sudo systemctl start rvpn break;;
+            "Skip" ) break;;
+        esac
+    done
 
     # print success and remind user to allow rvpn serve port (21820) through firewall if serving
     echo "Successfully installed rVPN!"
-    echo "If using this device as a VPN server please allow rVPN serve port (default 21820) through firewall"
+    echo "NOTE: If using this device as a VPN server please allow rVPN serve port (default 21820) through firewall"
 }
 
 main
