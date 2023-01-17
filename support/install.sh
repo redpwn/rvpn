@@ -7,7 +7,7 @@ arch="amd64" # FIXME
 
 enable_ip4_forwarding() {
     # arg $1 is the sudo string
-    echo "net.ipv4.ip_forward = 1" >> "$1" tee -a /etc/sysctl.conf
+    echo "net.ipv4.ip_forward = 1" | "$1" tee -a /etc/sysctl.conf
     $1 sysctl -p /etc/sysctl.conf
 }
 
