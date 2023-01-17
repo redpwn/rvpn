@@ -143,6 +143,9 @@ func ClientConnectProfile(profile string, opts common.ClientOptions) {
 		os.Exit(1)
 	}
 
+	// either receive message from connectEvent chan or timeout 5 seconds
+	// if connectEvent then test for connectivity by pinging the VPN server
+
 	fmt.Printf("rVPN successfully connected to profile %s\n", profile)
 }
 

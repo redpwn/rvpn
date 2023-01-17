@@ -69,10 +69,16 @@ jobs:
           for arch in amd64; do
             mkdir -p build/package/rvpn_linux_$arch/{,bin/,systemd/}
             cp build/client_linux_$arch build/package/rvpn_linux_$arch/bin/rvpn
-            cp -r support/systemd/ build/package/rvpn_linux_$arch/systemd/
+            cp -r support/systemd/ build/package/rvpn_linux_$arch/
             tar --owner root --group root --sort name \
               -C build/package/ -czvf rvpn_linux_$arch.tar.gz rvpn_linux_$arch
           done
+          for arch in amd64 arm64; do
+            mkdir -p build/package/rvpn_darwin_$arch/{,bin/,systemd/}
+            cp build/client_darwin_$arch build/package/rvpn_darwin_$arch/bin/rvpn
+            cp -r support/launchd/ build/package/rvpn_darwin_$arch/
+            tar --owner root --group root --sort name \
+              -C build/package/ -czvf rvpn_darwin_$arch.tar.gz rvpn_darwin_$arch
 
       - uses: softprops/action-gh-release@v1
         with:
