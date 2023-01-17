@@ -1,0 +1,15 @@
+{
+  "name": "rvpn",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "cmd/client_gui/frontend"
+  ],
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "typescript": "^4.9.4"
+  },
+  "packageManager": "yarn@3.3.1"
+}

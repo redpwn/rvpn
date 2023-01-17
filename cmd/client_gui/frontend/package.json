@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "typecheck": "tsc -b",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -16,10 +17,12 @@
     "react-spinners": "^0.13.7"
   },
   "devDependencies": {
+    "@types/node": "^18.11.18",
     "@types/react": "^18.0.17",
     "@types/react-dom": "^18.0.6",
     "@vitejs/plugin-react": "^2.0.1",
-    "typescript": "^4.6.4",
+    "csstype": "^3.1.1",
+    "typescript": "^4.9.4",
     "vite": "^3.0.7"
   }
 }
