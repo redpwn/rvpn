@@ -410,7 +410,7 @@ func (r *RVPNDaemon) Start() {
 	// start RPC server; TODO: investigate if this is a good pattern
 	rpc.Register(r)
 
-	tcpAddr, err := net.ResolveTCPAddr("tcp", ":52370")
+	tcpAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:52370")
 	if err != nil {
 		log.Fatalf("failed to resolve tcp address: %v", err)
 	}

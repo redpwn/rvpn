@@ -77,6 +77,7 @@ func findDefaultInterface() (netlink.Link, net.IP, error) {
 					// this route has a lower metric / more priority
 					defaultIFaceLink = ifaceLink
 					defaultGateway = route.Gw
+					lowestMetric = route.Priority
 					foundDefaultIFace = true
 				}
 			}
