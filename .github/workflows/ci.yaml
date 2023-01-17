@@ -4,6 +4,7 @@ name: CI
 on:
   push:
     branches: [master]
+    tags: ['*']
   pull_request:
 
 jobs:
@@ -49,3 +50,32 @@ jobs:
         with:
           name: binaries
           path: build/
+
+  release:
+    runs-on: ubuntu-22.04
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    needs:
+      - client-build
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/download-artifact@master
+        with:
+          name: binaries
+          path: build/
+
+      - name: Build archives for release
+        run: |
+          for arch in amd64; do
+            mkdir -p build/package/rvpn_linux_$arch/{,bin/,systemd/}
+            cp build/client_linux_$arch build/package/rvpn_linux_$arch/bin/rvpn
+            cp -r support/systemd/ build/package/rvpn_linux_$arch/systemd/
+            tar --owner root --group root --sort name \
+              -C build/package/ -czvf rvpn_linux_$arch.tar.gz rvpn_linux_$arch
+          done
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/package/rvpn_linux_*.tar.gz
+            build/rvpn-amd64-installer.exe
