@@ -1,0 +1,6 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./cmd/client_gui/frontend" }
+  ]
+}
